@@ -69,6 +69,22 @@ module.exports = (sequelize) => {
             field: 'excluded_ids',
             comment: 'Array of IDs to exclude from this discount'
         },
+        agencyIds: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            field: 'agency_ids',
+            comment: 'Array of agency IDs included in discount'
+        },
+        manufacturers: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            comment: 'Array of manufacturer/brand names included'
+        },
+        batchIds: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            comment: 'Array of batch IDs included'
+        },
         // Usage Limits
         usageLimit: {
             type: DataTypes.INTEGER,

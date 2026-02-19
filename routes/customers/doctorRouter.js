@@ -1,8 +1,44 @@
 const express = require('express');
 const router = express.Router();
 const doctorController = require('../../controllers/customers/doctorController');
+const { userController } = require('../../controllers');
 const { authenticateToken, requirePermission } = require('../../middleware/auth');
 const { doctorValidators, addressValidators, queryValidators } = require('../../validators');
+const { body } = require('express-validator');
+
+const loginValidation = [
+    body().custom((value, { req }) => {
+        if (!req.body.phone && !req.body.userName && !req.body.identifier) {
+            throw new Error('Phone or Username is required');
+        }
+        return true;
+    }),
+    body('password').notEmpty().withMessage('Password is required')
+];
+
+/**
+ * @swagger
+ * /doctors/login:
+ *   post:
+ *     summary: Doctor specialized login
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/LoginResponse'
+ *       401:
+ *         description: Invalid credentials
+ */
+router.post('/login', loginValidation, userController.doctorLogin);
 
 /**
  * @swagger
@@ -13,7 +49,8 @@ const { doctorValidators, addressValidators, queryValidators } = require('../../
  *     security:
  *       - bearerAuth: []
  *     responses:
- *       200: { description: Doctor profile }
+ *       200:
+ *         description: Doctor profile
  */
 router.get('/me', authenticateToken, doctorController.getMyProfile);
 

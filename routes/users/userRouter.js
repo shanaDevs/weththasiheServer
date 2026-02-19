@@ -49,12 +49,20 @@ const { body } = require('express-validator');
  */
 
 const { authenticateToken, requirePermission } = require('../../middleware/auth');
-const { userValidators, queryValidators } = require('../../validators');
+const { userValidators, doctorValidators, queryValidators } = require('../../validators');
 
-// Validation rules
+// Validation rules — accept identifier (generic), phone, or userName
 const loginValidation = [
-    body('phone').trim().isLength({ min: 9, max: 11 }).withMessage('Phone number must be 9-11 characters').matches(/^\d+$/).withMessage('Phone number must contain only digits'),
-    body('password').notEmpty().withMessage('Password is required')
+    body('identifier').optional().trim(),
+    body('phone').optional().trim(),
+    body('userName').optional().trim(),
+    body('password').notEmpty().withMessage('Password is required'),
+    body().custom((body) => {
+        if (!body.identifier && !body.phone && !body.userName) {
+            throw new Error('Phone or username is required');
+        }
+        return true;
+    })
 ];
 
 /**
@@ -121,6 +129,57 @@ router.post('/register', userValidators.register, userController.register);
 
 /**
  * @swagger
+ * /users/register-doctor:
+ *   post:
+ *     summary: Public doctor registration
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [firstName, phone, userName, password, licenseNumber]
+ *             properties:
+ *               firstName: { type: string }
+ *               lastName: { type: string }
+ *               phone: { type: string }
+ *               userName: { type: string }
+ *               password: { type: string }
+ *               licenseNumber: { type: string }
+ *               hospitalClinic: { type: string }
+ *               specialization: { type: string }
+ *               clinicAddress: { type: string }
+ *     responses:
+ *       201:
+ *         description: Doctor registered successfully
+ */
+router.post('/register-doctor', doctorValidators.publicRegister, userController.publicRegisterDoctor);
+
+/**
+ * @swagger
+ * /users/resend-verification:
+ *   post:
+ *     summary: Public resend verification email (no auth required)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [identifier]
+ *             properties:
+ *               identifier: { type: string, description: Phone or username }
+ *               isDoctor: { type: boolean, description: Whether the account is a doctor }
+ *     responses:
+ *       200: { description: Email sent if account exists }
+ */
+router.post('/resend-verification', userController.publicResendVerification);
+
+
+/**
+ * @swagger
  * /users/refresh-token:
  *   post:
  *     summary: Refresh access token
@@ -162,25 +221,18 @@ router.post('/logout', userController.logout);
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
+ *       - $ref: '#/components/parameters/PageParam'
+ *       - $ref: '#/components/parameters/LimitParam'
+ *       - $ref: '#/components/parameters/SearchParam'
  *     responses:
  *       200:
  *         description: List of users
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PaginatedResponse'
  *       403:
- *         description: Forbidden
+ *         $ref: '#/components/responses/ForbiddenError'
  */
 router.get('/',
     authenticateToken,
@@ -206,6 +258,10 @@ router.get('/',
  *     responses:
  *       200:
  *         description: User status toggled
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
  */
 router.patch('/:id/status',
     authenticateToken,
@@ -241,22 +297,75 @@ router.patch('/:id/status',
  */
 router.post('/admin/create-user',
     authenticateToken,
-    requirePermission('manage_users'),
+    requirePermission('users', 'create'),
     [
         body('firstName').notEmpty().withMessage('First name is required'),
-        body('lastName').notEmpty().withMessage('Last name is required'),
         body('userName').notEmpty().withMessage('Username is required'),
         body('phone').notEmpty().withMessage('Phone is required'),
-        body('roleId').notEmpty().withMessage('Role ID is required')
+        body('email').optional().isEmail().withMessage('Invalid email format'),
+        body().custom((body) => {
+            if (!body.roleId && !body.roleName) {
+                throw new Error('Role ID or Role Name is required');
+            }
+            return true;
+        })
     ],
     userController.adminCreateUser
 );
 
 /**
  * @swagger
+ * /users/admin/resend-verification:
+ *   post:
+ *     summary: Resend verification email for a USER (Admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id]
+ *             properties:
+ *               id: { type: integer, description: User ID }
+ */
+router.post('/admin/resend-verification',
+    authenticateToken,
+    requirePermission('users', 'update'),
+    userController.resendVerification
+);
+
+/**
+ * @swagger
+ * /users/admin/resend-doctor-verification:
+ *   post:
+ *     summary: Resend verification email for a DOCTOR (Admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id]
+ *             properties:
+ *               id: { type: integer, description: Doctor ID }
+ */
+router.post('/admin/resend-doctor-verification',
+    authenticateToken,
+    requirePermission('users', 'update'),
+    userController.resendDoctorVerification
+);
+
+/**
+ * @swagger
  * /users/verify:
  *   get:
- *     summary: Account verification
+ *     summary: User account verification
  *     tags: [Auth]
  *     parameters:
  *       - in: query
@@ -268,7 +377,25 @@ router.post('/admin/create-user',
  *       200:
  *         description: Account verified
  */
-router.get('/verify', userController.verifyAccount);
+router.get('/verify', userController.verifyUserAccount);
+
+/**
+ * @swagger
+ * /users/verify-doctor:
+ *   get:
+ *     summary: Doctor account verification
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Doctor account verified
+ */
+router.get('/verify-doctor', userController.verifyDoctorAccount);
 
 /**
  * @swagger
@@ -297,5 +424,11 @@ router.post('/setup-password',
     ],
     userController.setupPassword
 );
+
+// 2FA Routes
+router.post('/2fa/request-enable', authenticateToken, userController.request2FAEnable);
+router.post('/2fa/confirm-enable', authenticateToken, userController.confirm2FAEnable);
+router.post('/2fa/disable', authenticateToken, userController.disable2FA);
+router.post('/2fa/verify-login', userController.verify2FALogin);
 
 module.exports = router;

@@ -2,15 +2,15 @@ const { SystemSetting } = require('../models');
 
 const settings = [
     // General
-    { key: 'site_name', value: 'MediPharm B2B', label: 'Site Name', category: 'general', type: 'string', isPublic: true },
-    { key: 'site_tagline', value: 'Bulk Medicine Supplier for Doctors', label: 'Site Tagline', category: 'general', type: 'string', isPublic: true },
-    { key: 'company_name', value: 'MediPharm Pvt Ltd', label: 'Company Name', category: 'general', type: 'string', isPublic: true },
-    { key: 'company_address', value: '', label: 'Company Address', category: 'general', type: 'string', isPublic: true },
+    { key: 'site_name', value: 'Weththasinghe Distributors', label: 'Site Name', category: 'general', type: 'string', isPublic: true },
+    { key: 'site_tagline', value: 'Premier Medicine Supplier in Sri Lanka', label: 'Site Tagline', category: 'general', type: 'string', isPublic: true },
+    { key: 'company_name', value: 'Weththasinghe Distributors', label: 'Company Name', category: 'general', type: 'string', isPublic: true },
+    { key: 'company_address', value: 'Sri Lanka', label: 'Company Address', category: 'general', type: 'string', isPublic: true },
     { key: 'company_phone', value: '', label: 'Company Phone', category: 'general', type: 'string', isPublic: true },
     { key: 'company_email', value: '', label: 'Company Email', category: 'general', type: 'string', isPublic: true },
-    { key: 'gst_number', value: '', label: 'GST Number', category: 'general', type: 'string', isPublic: true },
-    { key: 'default_currency', value: 'INR', label: 'Default Currency', category: 'general', type: 'string', isPublic: true },
-    { key: 'currency_symbol', value: '₹', label: 'Currency Symbol', category: 'general', type: 'string', isPublic: true },
+    { key: 'gst_number', value: '', label: 'VAT Number', category: 'general', type: 'string', isPublic: true },
+    { key: 'default_currency', value: 'LKR', label: 'Default Currency', category: 'general', type: 'string', isPublic: true },
+    { key: 'currency_symbol', value: 'Rs.', label: 'Currency Symbol', category: 'general', type: 'string', isPublic: true },
 
     // Notifications
     { key: 'email_enabled', value: 'true', label: 'Enable Email Notifications', category: 'notifications', type: 'boolean', sortOrder: 1 },
@@ -18,6 +18,7 @@ const settings = [
     { key: 'order_notifications_enabled', value: 'true', label: 'Order Notifications', category: 'notifications', type: 'boolean', sortOrder: 3 },
     { key: 'stock_alerts_enabled', value: 'true', label: 'Low Stock Alerts', category: 'notifications', type: 'boolean', sortOrder: 4 },
     { key: 'verification_notifications_enabled', value: 'true', label: 'Doctor Verification Notifications', category: 'notifications', type: 'boolean', sortOrder: 5 },
+    { key: 'admin_notification_email', value: '', label: 'Admin Notification Email', category: 'notifications', type: 'string', sortOrder: 6 },
 
     // Email Settings
     { key: 'smtp_host', value: '', label: 'SMTP Host', category: 'email', type: 'string', sortOrder: 1 },

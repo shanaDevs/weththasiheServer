@@ -315,10 +315,11 @@ exports.clearCart = async (req, res, next) => {
         });
 
         if (!cart) {
-            await transaction.rollback();
-            return res.status(404).json({
-                success: false,
-                message: 'Cart not found'
+            await transaction.commit();
+            return res.status(200).json({
+                success: true,
+                message: 'Cart is already empty',
+                data: null
             });
         }
 

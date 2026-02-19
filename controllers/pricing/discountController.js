@@ -1,4 +1,4 @@
-const { Discount, Order, sequelize } = require('../../models');
+const { Discount, Order, Product, Category, sequelize } = require('../../models');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const { AuditLogService } = require('../../services');
@@ -183,7 +183,7 @@ exports.updateDiscount = async (req, res, next) => {
         }
 
         const updateFields = [
-            'name', 'code', 'description', 'type', 'value', 'minOrderValue',
+            'name', 'code', 'description', 'type', 'value', 'minOrderAmount',
             'maxDiscountAmount', 'usageLimit', 'usageLimitPerUser', 'startDate',
             'endDate', 'isActive', 'applicableProducts', 'applicableCategories',
             'excludedProducts', 'excludedCategories', 'conditions', 'stackable'
@@ -244,7 +244,7 @@ exports.deleteDiscount = async (req, res, next) => {
  */
 exports.validateCode = async (req, res, next) => {
     try {
-        const { code, cartTotal, itemCount } = req.body;
+        const { code, cartTotal, items = [] } = req.body;
 
         if (!code) {
             return res.status(400).json({
@@ -295,37 +295,101 @@ exports.validateCode = async (req, res, next) => {
             });
         }
 
-        // Check min order value
-        if (discount.minOrderValue && cartTotal < parseFloat(discount.minOrderValue)) {
+        // Check min order value (Global check)
+        if (discount.minOrderValue && parseFloat(cartTotal) < parseFloat(discount.minOrderValue)) {
             return res.status(400).json({
                 success: false,
                 valid: false,
-                message: `Minimum order value of ₹${discount.minOrderValue} required`
+                message: `Minimum order value of ${discount.minOrderAmount} required`
             });
         }
+
+        // --- Filter Applicable Items & Calculate Base ---
+        let applicableTotal = parseFloat(cartTotal) || 0;
+        let applicableItems = items;
+
+        if (items.length > 0) {
+            const hasAgencyFilter = discount.agencyIds && discount.agencyIds.length > 0;
+            const hasBrandFilter = discount.manufacturers && discount.manufacturers.length > 0;
+            const hasProductFilter = discount.applicableTo === 'products' && discount.applicableIds?.length > 0;
+            const hasCategoryFilter = discount.applicableTo === 'categories' && discount.applicableIds?.length > 0;
+
+            if (hasAgencyFilter || hasBrandFilter || hasProductFilter || hasCategoryFilter) {
+                // Fetch product details for validation
+                const productIds = items.map(i => i.productId || i.id);
+                // Ensure unique IDs to avoid DB errors or redundant fetching
+                const uniqueProductIds = [...new Set(productIds)];
+
+                const products = await Product.findAll({
+                    where: { id: { [Op.in]: uniqueProductIds } },
+                    attributes: ['id', 'agencyId', 'manufacturer', 'categoryId']
+                });
+
+                const productMap = {};
+                products.forEach(p => { productMap[p.id] = p; });
+
+                applicableItems = items.filter(item => {
+                    const pid = item.productId || item.id;
+                    const product = productMap[pid];
+
+                    // If product not found in DB, it might be invalid item, skip it
+                    if (!product) return false;
+
+                    // Check Agency
+                    if (hasAgencyFilter && !discount.agencyIds.includes(product.agencyId)) return false;
+
+                    // Check Manufacturer
+                    if (hasBrandFilter && !discount.manufacturers.includes(product.manufacturer)) return false;
+
+                    // Check Batches
+                    if (discount.batchIds && discount.batchIds.length > 0) {
+                        if (!item.batchId || !discount.batchIds.includes(item.batchId)) return false;
+                    }
+
+                    // Check Specific Products
+                    if (hasProductFilter && !discount.applicableIds.includes(product.id)) return false;
+
+                    // Check Categories
+                    if (hasCategoryFilter && !discount.applicableIds.includes(product.categoryId)) return false;
+
+                    return true;
+                });
+
+                // Recalculate applicable total from filtered items
+                applicableTotal = applicableItems.reduce((sum, item) => {
+                    const price = parseFloat(item.price || item.sellingPrice || 0);
+                    const qty = parseInt(item.quantity || 1);
+                    return sum + (price * qty);
+                }, 0);
+            }
+        }
+
+        // If specific rules exist but no items match, the discount amount is 0 (or invalid depending on logic)
+        // Here we'll just let it calculate 0 discount if no items match.
 
         // Calculate discount amount
         let discountAmount = 0;
         if (discount.type === 'percentage') {
-            discountAmount = (cartTotal * parseFloat(discount.value)) / 100;
+            discountAmount = (applicableTotal * parseFloat(discount.value)) / 100;
             if (discount.maxDiscountAmount) {
                 discountAmount = Math.min(discountAmount, parseFloat(discount.maxDiscountAmount));
             }
         } else {
+            // Fixed Amount
             discountAmount = parseFloat(discount.value);
+            // Cap at applicable total to avoid negative payment
+            if (discountAmount > applicableTotal) {
+                discountAmount = applicableTotal;
+            }
         }
 
         res.json({
             success: true,
             valid: true,
+            discountAmount,
             data: {
-                id: discount.id,
-                name: discount.name,
-                code: discount.code,
-                type: discount.type,
-                value: discount.value,
-                discountAmount: Math.round(discountAmount * 100) / 100,
-                description: discount.description
+                ...discount.toJSON(),
+                discountAmount
             }
         });
     } catch (error) {
@@ -333,10 +397,11 @@ exports.validateCode = async (req, res, next) => {
     }
 };
 
+
 /**
  * Generate unique discount code
  */
-exports.generateCode = function() {
+exports.generateCode = function () {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = '';
     for (let i = 0; i < 8; i++) {

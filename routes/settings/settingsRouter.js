@@ -5,16 +5,29 @@ const { authenticateToken, requirePermission } = require('../../middleware/auth'
 const { settingsValidators } = require('../../validators');
 
 /**
- * @route   GET /api/settings/public
- * @desc    Get public settings
- * @access  Public
+ * @swagger
+ * /settings/public:
+ *   get:
+ *     summary: Get all public configuration settings
+ *     tags: [Settings]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Object containing public settings
  */
 router.get('/public', settingsController.getPublicSettings);
 
 /**
- * @route   GET /api/settings
- * @desc    Get all settings
- * @access  Admin
+ * @swagger
+ * /settings:
+ *   get:
+ *     summary: Get all system settings (Admin only)
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all settings
  */
 router.get('/',
     authenticateToken,
@@ -23,9 +36,16 @@ router.get('/',
 );
 
 /**
- * @route   GET /api/settings/notifications
- * @desc    Get notification settings
- * @access  Admin
+ * @swagger
+ * /settings/notifications:
+ *   get:
+ *     summary: Get notification gateway settings
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Notification configuration
  */
 router.get('/notifications',
     authenticateToken,
@@ -34,9 +54,16 @@ router.get('/notifications',
 );
 
 /**
- * @route   PUT /api/settings/notifications
- * @desc    Update notification settings
- * @access  Admin
+ * @swagger
+ * /settings/notifications:
+ *   put:
+ *     summary: Update notification gateway settings
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Settings updated
  */
 router.put('/notifications',
     authenticateToken,
@@ -45,9 +72,16 @@ router.put('/notifications',
 );
 
 /**
- * @route   GET /api/settings/email
- * @desc    Get email settings
- * @access  Admin
+ * @swagger
+ * /settings/email:
+ *   get:
+ *     summary: Get SMTP/Email relay settings
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Email configuration
  */
 router.get('/email',
     authenticateToken,
@@ -56,9 +90,16 @@ router.get('/email',
 );
 
 /**
- * @route   GET /api/settings/sms
- * @desc    Get SMS settings
- * @access  Admin
+ * @swagger
+ * /settings/sms:
+ *   get:
+ *     summary: Get SMS gateway settings
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: SMS configuration
  */
 router.get('/sms',
     authenticateToken,
@@ -67,9 +108,21 @@ router.get('/sms',
 );
 
 /**
- * @route   GET /api/settings/:key
- * @desc    Get setting by key
- * @access  Admin
+ * @swagger
+ * /settings/{key}:
+ *   get:
+ *     summary: Get a specific setting by unique key
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: key
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Setting value
  */
 router.get('/:key',
     authenticateToken,
@@ -78,9 +131,21 @@ router.get('/:key',
 );
 
 /**
- * @route   PUT /api/settings/:key
- * @desc    Update setting
- * @access  Admin
+ * @swagger
+ * /settings/{key}:
+ *   put:
+ *     summary: Update a specific system setting
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: key
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Setting updated
  */
 router.put('/:key',
     authenticateToken,
@@ -90,9 +155,16 @@ router.put('/:key',
 );
 
 /**
- * @route   POST /api/settings/bulk
- * @desc    Bulk update settings
- * @access  Admin
+ * @swagger
+ * /settings/bulk:
+ *   post:
+ *     summary: Bulk update multiple settings at once
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Settings updated
  */
 router.post('/bulk',
     authenticateToken,
@@ -101,9 +173,16 @@ router.post('/bulk',
 );
 
 /**
- * @route   POST /api/settings
- * @desc    Create setting
- * @access  Super Admin
+ * @swagger
+ * /settings:
+ *   post:
+ *     summary: Create a new system setting (Super Admin)
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       201:
+ *         description: Setting created
  */
 router.post('/',
     authenticateToken,
@@ -113,9 +192,21 @@ router.post('/',
 );
 
 /**
- * @route   DELETE /api/settings/:key
- * @desc    Delete setting
- * @access  Super Admin
+ * @swagger
+ * /settings/{key}:
+ *   delete:
+ *     summary: Permanent deletion of a setting key
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: key
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Setting deleted
  */
 router.delete('/:key',
     authenticateToken,

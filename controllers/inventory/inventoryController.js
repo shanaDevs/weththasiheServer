@@ -88,3 +88,33 @@ exports.getProductBatches = async (req, res, next) => {
         next(error);
     }
 };
+
+exports.updateProductBatch = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const batch = await ProductBatch.findByPk(id);
+        if (!batch) {
+            return res.status(404).json({ success: false, message: 'Batch not found' });
+        }
+
+        await batch.update(req.body);
+        res.json({ success: true, message: 'Batch updated', data: batch });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.deleteProductBatch = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const batch = await ProductBatch.findByPk(id);
+        if (!batch) {
+            return res.status(404).json({ success: false, message: 'Batch not found' });
+        }
+
+        await batch.destroy();
+        res.json({ success: true, message: 'Batch deleted' });
+    } catch (error) {
+        next(error);
+    }
+};

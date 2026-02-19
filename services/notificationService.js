@@ -23,16 +23,20 @@ class NotificationService {
 
             const settingsMap = {};
             settings.forEach(s => {
-                const value = s.dataType === 'boolean' 
-                    ? (s.value === 'true' || s.value === true) 
+                const value = s.dataType === 'boolean'
+                    ? (s.value === 'true' || s.value === true)
                     : s.value;
                 settingsMap[s.key] = value;
             });
 
             return {
-                emailEnabled: settingsMap['notifications_email_enabled'] ?? defaultSettings.emailEnabled,
-                smsEnabled: settingsMap['notifications_sms_enabled'] ?? defaultSettings.smsEnabled,
-                pushEnabled: settingsMap['notifications_push_enabled'] ?? defaultSettings.pushEnabled
+                emailEnabled: settingsMap['notifications_email_enabled'] ?? settingsMap['email_enabled'] ?? defaultSettings.emailEnabled,
+                smsEnabled: settingsMap['notifications_sms_enabled'] ?? settingsMap['sms_enabled'] ?? defaultSettings.smsEnabled,
+                pushEnabled: settingsMap['notifications_push_enabled'] ?? settingsMap['push_enabled'] ?? defaultSettings.pushEnabled,
+                adminEmail: (settingsMap['notifications_admin_notification_email'] ?? settingsMap['admin_notification_email']) || process.env.ADMIN_EMAIL,
+                stockAlertsEnabled: (settingsMap['notifications_stock_alerts_enabled'] ?? settingsMap['stock_alerts_enabled']) !== false,
+                orderAlertsEnabled: (settingsMap['notifications_order_notifications_enabled'] ?? settingsMap['order_notifications_enabled']) !== false,
+                verificationAlertsEnabled: (settingsMap['notifications_verification_notifications_enabled'] ?? settingsMap['verification_notifications_enabled']) !== false
             };
         } catch (error) {
             console.error('Failed to get notification settings:', error.message);
@@ -43,7 +47,7 @@ class NotificationService {
     /**
      * Send notification using all enabled channels
      * @param {Object} options
-     * @param {Object} options.user - User object
+     * @param {Object} options.user - User or Doctor object
      * @param {string} options.emailTemplate - Email template code
      * @param {string} options.smsTemplate - SMS template code
      * @param {Object} options.placeholders - Placeholder values
@@ -72,20 +76,26 @@ class NotificationService {
         const useEmail = channels ? channels.includes('email') : settings.emailEnabled;
         const useSMS = channels ? channels.includes('sms') : settings.smsEnabled;
 
-        // Check user preferences
-        const userEmailEnabled = user.doctorProfile?.emailNotifications !== false;
-        const userSMSEnabled = user.doctorProfile?.smsNotifications !== false;
+        // Check user preferences - handle both User (with doctorProfile) and Doctor objects
+        // If it's a doctor object directly, it has emailNotifications property
+        // If it's a user object, doctors have it in doctorProfile
+        const userEmailEnabled = (user.emailNotifications ?? user.doctorProfile?.emailNotifications) !== false;
+        const userSMSEnabled = (user.smsNotifications ?? user.doctorProfile?.smsNotifications) !== false;
 
         // Send email
         if (useEmail && userEmailEnabled && emailTemplate) {
+            // Handle both User and Doctor objects
             const email = user.email || user.doctorProfile?.email;
+            const firstName = user.firstName;
+            const lastName = user.lastName || '';
+
             if (email) {
                 results.email = await EmailService.sendTemplateEmail({
                     templateCode: emailTemplate,
                     to: email,
-                    toName: `${user.firstName} ${user.lastName}`,
+                    toName: `${firstName} ${lastName}`.trim(),
                     placeholders,
-                    userId: user.id,
+                    userId: user.id || user.userId,
                     referenceType,
                     referenceId
                 });
@@ -94,13 +104,16 @@ class NotificationService {
 
         // Send SMS
         if (useSMS && userSMSEnabled && smsTemplate) {
-            if (user.phone) {
+            const phone = user.phone || user.doctorProfile?.phone;
+            if (phone) {
+                const firstName = user.firstName;
+                const lastName = user.lastName || '';
                 results.sms = await SMSService.sendTemplateSMS({
                     templateCode: smsTemplate,
-                    to: user.phone,
-                    toName: `${user.firstName} ${user.lastName}`,
+                    to: phone,
+                    toName: `${firstName} ${lastName}`.trim(),
                     placeholders,
-                    userId: user.id,
+                    userId: user.id || user.userId,
                     referenceType,
                     referenceId
                 });
@@ -164,8 +177,8 @@ class NotificationService {
             order_number: order.orderNumber,
             tracking_number: order.trackingNumber,
             tracking_url: order.trackingUrl || '',
-            expected_delivery: order.expectedDeliveryDate 
-                ? new Date(order.expectedDeliveryDate).toLocaleDateString() 
+            expected_delivery: order.expectedDeliveryDate
+                ? new Date(order.expectedDeliveryDate).toLocaleDateString()
                 : 'N/A'
         };
 
@@ -304,6 +317,84 @@ class NotificationService {
             placeholders,
             referenceType: 'order',
             referenceId: order.id
+        });
+    }
+
+    /**
+     * Send alert to admin(s)
+     */
+    static async sendAdminAlert(options) {
+        const {
+            emailTemplate,
+            placeholders = {},
+            referenceType = null,
+            referenceId = null
+        } = options;
+
+        const settings = await this.getNotificationSettings();
+        if (!settings.emailEnabled || !settings.adminEmail) return null;
+
+        const adminEmails = settings.adminEmail.split(',').map(e => e.trim());
+        const results = [];
+
+        for (const email of adminEmails) {
+            results.push(await EmailService.sendTemplateEmail({
+                templateCode: emailTemplate,
+                to: email,
+                toName: 'Administrator',
+                placeholders,
+                referenceType,
+                referenceId
+            }));
+        }
+
+        return results;
+    }
+
+    /**
+     * Send alert to admins for new order
+     */
+    static async sendNewOrderAlertToAdmins(order, user) {
+        const settings = await this.getNotificationSettings();
+        if (!settings.orderAlertsEnabled) return null;
+
+        const placeholders = {
+            customer_name: `${user.firstName} ${user.lastName || ''}`.trim(),
+            order_number: order.orderNumber,
+            order_total: order.total.toFixed(2),
+            item_count: order.itemCount,
+            view_order_url: `${process.env.ADMIN_FRONTEND_URL || 'http://localhost:3000/admin'}/orders/${order.id}`
+        };
+
+        return this.sendAdminAlert({
+            emailTemplate: 'admin_new_order_alert',
+            placeholders,
+            referenceType: 'order',
+            referenceId: order.id
+        });
+    }
+
+    /**
+     * Send alert to admins for new doctor registration
+     */
+    static async sendNewRegistrationAlertToAdmins(doctor) {
+        const settings = await this.getNotificationSettings();
+        if (!settings.verificationAlertsEnabled) return null;
+
+        const placeholders = {
+            doctor_name: `${doctor.firstName} ${doctor.lastName || ''}`.trim(),
+            license_number: doctor.licenseNumber,
+            phone: doctor.phone,
+            email: doctor.email,
+            hospital_clinic: doctor.hospitalClinic || 'N/A',
+            view_doctor_url: `${process.env.ADMIN_FRONTEND_URL || 'http://localhost:3000/admin'}/doctors`
+        };
+
+        return this.sendAdminAlert({
+            emailTemplate: 'admin_new_doctor_alert',
+            placeholders,
+            referenceType: 'doctor',
+            referenceId: doctor.id
         });
     }
 

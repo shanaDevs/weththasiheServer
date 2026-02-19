@@ -303,6 +303,68 @@ Happy Shopping!
         placeholders: JSON.stringify(['promotion_name', 'promotion_description', 'expiry_date', 'shop_url']),
         category: 'promotions',
         isActive: true
+    },
+    {
+        name: 'Admin: New Order Alert',
+        code: 'admin_new_order_alert',
+        type: 'email',
+        subject: 'New Order Received - {{order_number}}',
+        body: `Hello Admin,
+
+A new order has been placed on the system.
+
+Order Number: {{order_number}}
+Customer: {{customer_name}}
+Number of Items: {{item_count}}
+Total Amount: {{order_total}}
+
+View Order: {{view_order_url}}
+
+This is an automated notification.`,
+        placeholders: JSON.stringify(['order_number', 'customer_name', 'item_count', 'order_total', 'view_order_url']),
+        category: 'admin_alerts',
+        isActive: true
+    },
+    {
+        name: 'Admin: New Doctor Registration',
+        code: 'admin_new_doctor_alert',
+        type: 'email',
+        subject: 'New Doctor Registration - Dr. {{doctor_name}}',
+        body: `Hello Admin,
+
+A new doctor has registered and is awaiting verification.
+
+Doctor Name: Dr. {{doctor_name}}
+License Number: {{license_number}}
+Phone: {{phone}}
+Email: {{email}}
+Hospital/Clinic: {{hospital_clinic}}
+
+View Doctor Details: {{view_doctor_url}}
+
+This is an automated notification.`,
+        placeholders: JSON.stringify(['doctor_name', 'license_number', 'phone', 'email', 'hospital_clinic', 'view_doctor_url']),
+        category: 'admin_alerts',
+        isActive: true
+    },
+    {
+        name: 'Two Factor Authentication Code',
+        code: 'two_factor_code',
+        type: 'email',
+        subject: 'Your 2FA Verification Code - {{company_name}}',
+        body: `Dear {{customer_name}},
+
+Your verification code for two-factor authentication is:
+
+{{verification_code}}
+
+This code will expire in {{expiry_time}}. If you did not request this code, please ignore this email and ensure your account is secure.
+
+Best regards,
+The {{company_name}} Team`,
+        placeholders: JSON.stringify(['customer_name', 'verification_code', 'expiry_time', 'company_name']),
+        category: 'auth',
+        isActive: true
     }
 ];
 
@@ -311,9 +373,28 @@ async function seedNotificationTemplates() {
 
     try {
         for (const template of templates) {
+            const templateData = {
+                name: template.name,
+                code: template.code,
+                type: template.type,
+                isActive: template.isActive,
+                isSystem: true
+            };
+
+            if (template.type === 'email') {
+                templateData.emailSubject = template.subject;
+                templateData.emailBody = template.body;
+            } else if (template.type === 'sms') {
+                templateData.smsBody = template.body;
+            }
+
+            if (template.placeholders) {
+                templateData.availablePlaceholders = JSON.parse(template.placeholders);
+            }
+
             await NotificationTemplate.findOrCreate({
-                where: { code: template.code },
-                defaults: template
+                where: { code: template.code, type: template.type },
+                defaults: templateData
             });
         }
 

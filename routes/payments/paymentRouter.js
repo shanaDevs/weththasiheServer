@@ -5,9 +5,25 @@ const { authenticateToken, requirePermission } = require('../../middleware/auth'
 const { paymentValidators, queryValidators } = require('../../validators');
 
 /**
- * @route   GET /api/payments
- * @desc    Get all payments
- * @access  Admin
+ * @swagger
+ * /payments:
+ *   get:
+ *     summary: Get all recorded payments (Admin only)
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageParam'
+ *       - $ref: '#/components/parameters/LimitParam'
+ *       - in: query
+ *         name: startDate
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: endDate
+ *         schema: { type: string, format: date }
+ *     responses:
+ *       200:
+ *         description: List of payments
  */
 router.get('/',
     authenticateToken,
@@ -18,9 +34,16 @@ router.get('/',
 );
 
 /**
- * @route   GET /api/payments/stats
- * @desc    Get payment statistics
- * @access  Admin
+ * @swagger
+ * /payments/stats:
+ *   get:
+ *     summary: Get payment financial statistics
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Payment stats
  */
 router.get('/stats',
     authenticateToken,
@@ -30,9 +53,21 @@ router.get('/stats',
 );
 
 /**
- * @route   GET /api/payments/order/:orderId
- * @desc    Get payments for an order
- * @access  Admin
+ * @swagger
+ * /payments/order/{orderId}:
+ *   get:
+ *     summary: Get all payments linked to a specific order
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: List of payments for the order
  */
 router.get('/order/:orderId',
     authenticateToken,
@@ -41,9 +76,27 @@ router.get('/order/:orderId',
 );
 
 /**
- * @route   POST /api/payments/order/:orderId
- * @desc    Add payment to order
- * @access  Admin
+ * @swagger
+ * /payments/order/{orderId}:
+ *   post:
+ *     summary: Manually add a payment to an order (Admin only)
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Payment'
+ *     responses:
+ *       201:
+ *         description: Payment added
  */
 router.post('/order/:orderId',
     authenticateToken,
@@ -53,9 +106,21 @@ router.post('/order/:orderId',
 );
 
 /**
- * @route   POST /api/payments/:id/refund
- * @desc    Process refund
- * @access  Admin
+ * @swagger
+ * /payments/{id}/refund:
+ *   post:
+ *     summary: Process a full or partial refund for a payment
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Refund processed
  */
 router.post('/:id/refund',
     authenticateToken,
@@ -65,9 +130,39 @@ router.post('/:id/refund',
 );
 
 /**
- * @route   POST /api/payments/payhere-notify
- * @desc    PayHere IPN callback
- * @access  Public
+ * @swagger
+ * /payments/verify/{orderNumber}:
+ *   get:
+ *     summary: Verify payment status for an order (used by checkout success/cancel pages)
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderNumber
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Order payment details
+ *       404:
+ *         description: Order not found
+ */
+router.get('/verify/:orderNumber',
+    authenticateToken,
+    paymentController.verifyOrderPayment
+);
+
+/**
+ * @swagger
+ * /payments/payhere-notify:
+ *   post:
+ *     summary: Webhook for PayHere payment notifications
+ *     tags: [Payments]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Notification received
  */
 router.post('/payhere-notify', paymentController.handlePayHereNotify);
 

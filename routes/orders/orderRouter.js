@@ -44,8 +44,8 @@ const { orderValidators, queryValidators } = require('../../validators');
  *                 pagination:
  *                   $ref: '#/components/schemas/Pagination'
  */
-router.get('/my', 
-    authenticateToken, 
+router.get('/my',
+    authenticateToken,
     queryValidators.pagination,
     orderController.getMyOrders
 );
@@ -216,6 +216,7 @@ router.get('/',
  *         description: Order not found
  */
 router.get('/:id', authenticateToken, orderController.getOrder);
+router.get('/:id/payment-data', authenticateToken, orderController.getPaymentData);
 
 /**
  * @swagger

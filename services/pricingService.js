@@ -255,20 +255,75 @@ class PricingService {
     /**
      * Calculate discount amount (including buy_x_get_y)
      */
+    /**
+     * Calculate discount amount (including buy_x_get_y)
+     */
     static calculateDiscountAmount(discount, cart) {
         let discountAmount = 0;
-        const subtotal = parseFloat(cart.subtotal);
+        let applicableSubtotal = 0;
+
+        // Calculate applicable subtotal
+        if (discount.applicableTo === 'all' &&
+            (!discount.agencyIds || discount.agencyIds.length === 0) &&
+            (!discount.manufacturers || discount.manufacturers.length === 0)) {
+            applicableSubtotal = parseFloat(cart.subtotal);
+        } else {
+            // Filter applicable items
+            if (cart.items && cart.items.length > 0) {
+                cart.items.forEach(item => {
+                    let isApplicable = true;
+                    const product = item.product || item.Product; // Handle different casing/loading
+
+                    if (!product) return; // Skip if no product data
+
+                    // Check Agency
+                    if (discount.agencyIds && discount.agencyIds.length > 0) {
+                        if (!discount.agencyIds.includes(product.agencyId)) isApplicable = false;
+                    }
+
+                    // Check Manufacturer
+                    if (discount.manufacturers && discount.manufacturers.length > 0) {
+                        if (!discount.manufacturers.includes(product.manufacturer)) isApplicable = false;
+                    }
+
+                    // Check Batches
+                    if (discount.batchIds && discount.batchIds.length > 0) {
+                        if (!item.batchId || !discount.batchIds.includes(item.batchId)) isApplicable = false;
+                    }
+
+                    // Check Specific Products
+                    if (discount.applicableTo === 'products' && discount.applicableIds) {
+                        if (!discount.applicableIds.includes(product.id)) isApplicable = false;
+                    }
+                    // Check Categories
+                    else if (discount.applicableTo === 'categories' && discount.applicableIds) {
+                        if (!discount.applicableIds.includes(product.categoryId)) isApplicable = false;
+                    }
+
+                    if (isApplicable) {
+                        // Use calculated subtotal of the item line
+                        applicableSubtotal += parseFloat(item.subtotal || 0);
+                    }
+                });
+            } else {
+                // Fallback if no items but cart has subtotal (e.g. validated via simple total)
+                // If strict validation required, this might be 0.
+                if (discount.applicableTo === 'all') applicableSubtotal = parseFloat(cart.subtotal);
+            }
+        }
 
         switch (discount.type) {
             case 'percentage':
-                discountAmount = (subtotal * discount.value) / 100;
+                discountAmount = (applicableSubtotal * discount.value) / 100;
                 if (discount.maxDiscountAmount) {
-                    discountAmount = Math.min(discountAmount, discount.maxDiscountAmount);
+                    discountAmount = Math.min(discountAmount, parseFloat(discount.maxDiscountAmount));
                 }
                 break;
 
             case 'fixed_amount':
-                discountAmount = Math.min(discount.value, subtotal);
+                discountAmount = parseFloat(discount.value);
+                // Cap at applicable total
+                if (discountAmount > applicableSubtotal) discountAmount = applicableSubtotal;
                 break;
 
             case 'free_shipping':
@@ -284,7 +339,7 @@ class PricingService {
                 const freeItemsCount = sets * y;
 
                 // Average unit price to simplify global discount
-                const avgUnitPrice = subtotal / cart.itemCount;
+                const avgUnitPrice = parseFloat(cart.subtotal) / (cart.itemCount || 1);
                 discountAmount = freeItemsCount * avgUnitPrice;
                 break;
         }
@@ -300,15 +355,14 @@ class PricingService {
         const now = new Date();
         const where = {
             isActive: true,
-            isDeleted: false,
-            status: 'active',
+            isDeleted: false, // Ensure we check deleted status (if applicable)
             startDate: { [Op.lte]: now },
             endDate: { [Op.gte]: now }
         };
 
         const promotions = await Promotion.findAll({
             where,
-            order: [['displayOrder', 'ASC']]
+            order: [['displayOrder', 'desc']] // Higher order first
         });
 
         if (productIds && productIds.length > 0) {
@@ -318,8 +372,8 @@ class PricingService {
                 if (promo.applicableTo === 'products' && promo.productIds) {
                     return productIds.some(id => promo.productIds.includes(id));
                 }
-                // TODO: Handle category-based promotions
-                return false;
+                // Category/Agency/Brand filtering requires product details, done in applyPromotionToProduct
+                return true;
             });
         }
 
@@ -331,6 +385,27 @@ class PricingService {
      */
     static applyPromotionToProduct(product, promotion) {
         if (!promotion) return null;
+
+        // Verify Constraints
+        if (promotion.agencyIds && promotion.agencyIds.length > 0) {
+            if (!promotion.agencyIds.includes(product.agencyId)) return null;
+        }
+
+        if (promotion.manufacturers && promotion.manufacturers.length > 0) {
+            if (!promotion.manufacturers.includes(product.manufacturer)) return null;
+        }
+
+        if (promotion.brandIds && promotion.brandIds.length > 0) {
+            if (!product.brandId || !promotion.brandIds.includes(product.brandId)) return null;
+        }
+
+        if (promotion.applicableTo === 'products' && promotion.productIds) {
+            if (!promotion.productIds.includes(product.id)) return null;
+        }
+
+        if (promotion.applicableTo === 'categories' && promotion.categoryIds) {
+            if (!promotion.categoryIds.includes(product.categoryId)) return null;
+        }
 
         const originalPrice = parseFloat(product.sellingPrice);
         let promotionPrice = originalPrice;
