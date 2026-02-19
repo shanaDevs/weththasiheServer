@@ -13,16 +13,26 @@ const app = express();
 
 // CORS Configuration
 const corsOptions = {
-    origin: process.env.CORS_ORIGIN || '*', // Allow all origins or specify in .env
+    origin: (origin, callback) => {
+        // If origin is null (like mobile apps/curl), or process.env.CORS_ORIGIN is '*', allow it
+        // Note: returning true reflects the request's origin back to Access-Control-Allow-Origin
+        if (!origin || process.env.CORS_ORIGIN === '*' || (process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.split(',').includes(origin))) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     credentials: true,
     maxAge: 86400 // 24 hours
 };
 
+
 // Middleware
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Enable pre-flight for all routes
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
