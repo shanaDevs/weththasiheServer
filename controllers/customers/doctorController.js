@@ -1,4 +1,5 @@
-const { Doctor, User, Address, Order, sequelize } = require('../../models');
+const { Doctor, User, Address, Order, Payment, sequelize } = require('../../models');
+
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const { AuditLogService, NotificationService } = require('../../services');
@@ -598,9 +599,10 @@ exports.getCreditSummary = async (req, res, next) => {
             where: {
                 doctorId: doctor.id,
                 isCredit: true,
-                paymentStatus: 'credit',
+                paymentStatus: { [Op.in]: ['pending', 'partial', 'credit'] },
                 isDeleted: false
             },
+
             attributes: ['id', 'orderNumber', 'total', 'creditDueDate', 'createdAt'],
             order: [['creditDueDate', 'ASC']]
         });
@@ -616,6 +618,124 @@ exports.getCreditSummary = async (req, res, next) => {
             }
         });
     } catch (error) {
+        next(error);
+    }
+};
+/**
+ * Settle doctor outstandings (FIFO)
+ */
+exports.settleOutstanding = async (req, res, next) => {
+    const transaction = await sequelize.transaction();
+    try {
+        const { id } = req.params; // Optional, for admin
+        const { amount, method, transactionId, notes } = req.body;
+
+        // If admin, use id from params. If doctor, use current user's profile.
+        let doctor;
+        if (id) {
+            doctor = await Doctor.findByPk(id, { transaction });
+        } else {
+            // Find doctor profile for the current user
+            doctor = await Doctor.findOne({
+                where: { userId: req.user.id },
+                transaction
+            });
+        }
+
+        if (!doctor) {
+            await transaction.rollback();
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor profile not found'
+            });
+        }
+
+        const paymentAmount = parseFloat(amount);
+        if (isNaN(paymentAmount) || paymentAmount <= 0) {
+            await transaction.rollback();
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid payment amount'
+            });
+        }
+
+        // Get all unpaid/partially paid credit orders
+        const orders = await Order.findAll({
+            where: {
+                doctorId: doctor.id,
+                paymentStatus: { [Op.in]: ['pending', 'partial', 'credit'] },
+                dueAmount: { [Op.gt]: 0 },
+                isDeleted: false
+            },
+            order: [['createdAt', 'ASC']], // FIFO
+            transaction
+        });
+
+        let remainingToApply = paymentAmount;
+        const processedOrders = [];
+
+        for (const order of orders) {
+            if (remainingToApply <= 0) break;
+
+            const payToThisOrder = Math.min(parseFloat(order.dueAmount), remainingToApply);
+
+            await Payment.create({
+                orderId: order.id,
+                doctorId: doctor.id,
+                amount: payToThisOrder,
+                method,
+                transactionId: transactionId ? `${transactionId}-${order.orderNumber}` : null,
+                notes: notes || `Settlement payment applied to ${order.orderNumber}`,
+                status: 'completed',
+                paidAt: new Date(),
+                createdBy: req.user.id
+            }, { transaction });
+
+            order.paidAmount = parseFloat(order.paidAmount) + payToThisOrder;
+            order.dueAmount = parseFloat(order.total) - parseFloat(order.paidAmount);
+            order.paymentStatus = order.dueAmount <= 0 ? 'paid' : 'partial';
+            await order.save({ transaction });
+
+            remainingToApply -= payToThisOrder;
+            processedOrders.push({
+                orderNumber: order.orderNumber,
+                appliedAmount: payToThisOrder
+            });
+        }
+
+        // If there's still money left, it means the doctor paid more than total outstanding
+        // or there were no outstanding orders. We record this as an "Account Payment".
+        if (remainingToApply > 0) {
+            await Payment.create({
+                doctorId: doctor.id, // Not tied to an order
+                amount: remainingToApply,
+                method,
+                transactionId: transactionId ? `${transactionId}-ACCOUNT` : null,
+                notes: notes || 'General account settlement payment',
+                status: 'completed',
+                paidAt: new Date(),
+                createdBy: req.user.id
+            }, { transaction });
+        }
+
+        // Update doctor credit
+        doctor.currentCredit = parseFloat(doctor.currentCredit) - paymentAmount;
+        await doctor.save({ transaction });
+
+        await transaction.commit();
+
+        res.json({
+            success: true,
+            message: `Successfully processed payment of ${paymentAmount}`,
+            data: {
+                totalPaid: paymentAmount,
+                appliedToOrders: processedOrders,
+                accountCredit: remainingToApply,
+                newCurrentCredit: doctor.currentCredit
+            }
+        });
+    } catch (error) {
+        if (transaction) await transaction.rollback();
         next(error);
     }
 };

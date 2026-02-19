@@ -79,6 +79,10 @@
     {
       "name": "Health",
       "description": "System accessibility and performance monitoring"
+    },
+    {
+      "name": "Roles & Permissions",
+      "description": "Role-based access control management"
     }
   ],
   "components": {
@@ -1986,6 +1990,24 @@
         }
       }
     },
+    "/payments/my-payments": {
+      "get": {
+        "summary": "Get my payments (Doctor current user)",
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of my payments"
+          }
+        }
+      }
+    },
     "/payments/stats": {
       "get": {
         "summary": "Get payment financial statistics",
@@ -2092,6 +2114,37 @@
         "responses": {
           "200": {
             "description": "Refund processed"
+          }
+        }
+      }
+    },
+    "/payments/verify/{orderNumber}": {
+      "get": {
+        "summary": "Verify payment status for an order (used by checkout success/cancel pages)",
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orderNumber",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order payment details"
+          },
+          "404": {
+            "description": "Order not found"
           }
         }
       }
@@ -3850,6 +3903,132 @@
         }
       }
     },
+    "/roles": {
+      "get": {
+        "summary": "Get all roles",
+        "tags": [
+          "Roles & Permissions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of roles"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create new role",
+        "tags": [
+          "Roles & Permissions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "displayName"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "level": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Role created"
+          }
+        }
+      }
+    },
+    "/roles/permissions": {
+      "get": {
+        "summary": "Get all permissions",
+        "tags": [
+          "Roles & Permissions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of permissions"
+          }
+        }
+      }
+    },
+    "/roles/{roleId}/permissions": {
+      "put": {
+        "summary": "Update role permissions",
+        "tags": [
+          "Roles & Permissions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "roleId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "permissionIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Permissions updated"
+          }
+        }
+      }
+    },
     "/users/login": {
       "post": {
         "summary": "User login",
@@ -3931,6 +4110,101 @@
           },
           "400": {
             "description": "Invalid input or user already exists"
+          }
+        }
+      }
+    },
+    "/users/register-doctor": {
+      "post": {
+        "summary": "Public doctor registration",
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "firstName",
+                  "phone",
+                  "userName",
+                  "password",
+                  "licenseNumber"
+                ],
+                "properties": {
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "userName": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  },
+                  "licenseNumber": {
+                    "type": "string"
+                  },
+                  "hospitalClinic": {
+                    "type": "string"
+                  },
+                  "specialization": {
+                    "type": "string"
+                  },
+                  "clinicAddress": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Doctor registered successfully"
+          }
+        }
+      }
+    },
+    "/users/resend-verification": {
+      "post": {
+        "summary": "Public resend verification email (no auth required)",
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "identifier"
+                ],
+                "properties": {
+                  "identifier": {
+                    "type": "string",
+                    "description": "Phone or username"
+                  },
+                  "isDoctor": {
+                    "type": "boolean",
+                    "description": "Whether the account is a doctor"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email sent if account exists"
           }
         }
       }
@@ -4104,9 +4378,73 @@
         }
       }
     },
+    "/users/admin/resend-verification": {
+      "post": {
+        "summary": "Resend verification email for a USER (Admin only)",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": "User ID"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/admin/resend-doctor-verification": {
+      "post": {
+        "summary": "Resend verification email for a DOCTOR (Admin only)",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": "Doctor ID"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/verify": {
       "get": {
-        "summary": "Account verification",
+        "summary": "User account verification",
         "tags": [
           "Auth"
         ],
@@ -4123,6 +4461,29 @@
         "responses": {
           "200": {
             "description": "Account verified"
+          }
+        }
+      }
+    },
+    "/users/verify-doctor": {
+      "get": {
+        "summary": "Doctor account verification",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Doctor account verified"
           }
         }
       }

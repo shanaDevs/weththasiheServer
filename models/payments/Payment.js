@@ -9,9 +9,16 @@ module.exports = (sequelize) => {
         },
         orderId: {
             type: DataTypes.INTEGER,
-            allowNull: false,
+            allowNull: true,
             field: 'order_id'
         },
+        doctorId: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            field: 'doctor_id',
+            comment: 'For account payments not tied to a specific order upfront'
+        },
+
         transactionId: {
             type: DataTypes.STRING(255),
             allowNull: true,

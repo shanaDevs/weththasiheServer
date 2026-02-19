@@ -1,7 +1,8 @@
 const { User, Role, Doctor, Sequelize, sequelize } = require('../../models');
 const { Op } = Sequelize;
 const { validationResult } = require('express-validator');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
+
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { NotificationService } = require('../../services');

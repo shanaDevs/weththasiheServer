@@ -316,4 +316,19 @@ router.patch('/:id/credit-limit',
     doctorController.updateCreditLimit
 );
 
+/**
+ * Settle my outstandings (Doctor)
+ */
+router.post('/me/settle', authenticateToken, doctorController.settleOutstanding);
+
+/**
+ * Settle doctor outstandings (Admin)
+ */
+router.post('/:id/settle',
+    authenticateToken,
+    requirePermission('doctors', 'update'),
+    doctorController.settleOutstanding
+);
+
 module.exports = router;
+

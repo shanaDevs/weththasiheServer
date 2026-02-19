@@ -66,6 +66,8 @@ exports.addPayment = async (req, res, next) => {
         // Create payment
         const payment = await Payment.create({
             orderId,
+            doctorId: order.doctorId,
+
             amount,
             method,
             transactionId,
@@ -262,7 +264,8 @@ exports.processRefund = async (req, res, next) => {
             });
         }
 
-        if (originalPayment.status !== 'completed') {
+        if (!['completed', 'pending', 'processing'].includes(originalPayment.status)) {
+
             await transaction.rollback();
             return res.status(400).json({
                 success: false,
@@ -369,12 +372,22 @@ exports.getPaymentStats = async (req, res, next) => {
             }
         });
 
+        // Total outstanding (pending/processing)
+        const totalOutstanding = await Payment.sum('amount', {
+            where: {
+                status: { [Op.in]: ['pending', 'processing'] },
+                amount: { [Op.gt]: 0 }
+            }
+        });
+
         res.json({
             success: true,
             data: {
                 totalPaid: totalPaid || 0,
                 totalRefunds: Math.abs(totalRefunds || 0),
+                totalOutstanding: totalOutstanding || 0,
                 netPayments: (totalPaid || 0) + (totalRefunds || 0),
+
                 byMethod: byMethod.map(item => ({
                     method: item.method,
                     count: parseInt(item.get('count')),
@@ -563,5 +576,56 @@ exports.handlePayHereNotify = async (req, res, next) => {
         }
         console.error('PayHere IPN Error:', error);
         res.status(500).send('Error');
+    }
+};
+/**
+ * Get current user's (doctor) payments
+ */
+exports.getMyPayments = async (req, res, next) => {
+    try {
+        const { page = 1, limit = 20 } = req.query;
+
+        // Find doctor profile for this user
+        const doctor = await Doctor.findOne({ where: { userId: req.user.id } });
+        if (!doctor) {
+            return res.json({
+                success: true,
+                data: { payments: [], pagination: { total: 0, page, limit, totalPages: 0 } }
+            });
+        }
+
+        const { count, rows } = await Payment.findAndCountAll({
+            where: {
+                [Op.or]: [
+                    { doctorId: doctor.id },
+                    { '$order.doctor_id$': doctor.id }
+                ]
+            },
+            include: [
+                {
+                    model: Order,
+                    as: 'order',
+                    attributes: ['orderNumber', 'total', 'status']
+                }
+            ],
+            order: [['createdAt', 'DESC']],
+            limit: parseInt(limit),
+            offset: (parseInt(page) - 1) * parseInt(limit)
+        });
+
+        res.json({
+            success: true,
+            data: {
+                payments: rows,
+                pagination: {
+                    total: count,
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    totalPages: Math.ceil(count / limit)
+                }
+            }
+        });
+    } catch (error) {
+        next(error);
     }
 };

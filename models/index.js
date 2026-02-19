@@ -211,7 +211,11 @@ PurchaseOrder.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
 Payment.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
 Order.hasMany(Payment, { foreignKey: 'orderId', as: 'payments' });
 
+Payment.belongsTo(Doctor, { foreignKey: 'doctorId', as: 'doctor' });
+Doctor.hasMany(Payment, { foreignKey: 'doctorId', as: 'doctorPayments' });
+
 Payment.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+
 Payment.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
 Payment.belongsTo(User, { foreignKey: 'refundedBy', as: 'refunder' });
 

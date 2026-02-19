@@ -430,6 +430,18 @@ const startServer = async () => {
                 }
             }
 
+            // Manually add doctor_id to payments table if missing
+            try {
+                const [results] = await sequelize.query("SHOW COLUMNS FROM payments LIKE 'doctor_id'");
+                if (results.length === 0) {
+                    await sequelize.query("ALTER TABLE payments ADD COLUMN doctor_id INTEGER DEFAULT NULL AFTER order_id;");
+                    console.log('✅ Manually added doctor_id to payments table.');
+                }
+            } catch (err) {
+                console.warn('⚠️ Could not update payments table:', err.message);
+            }
+
+
             console.log('✅ Database models synchronized.');
 
             // Manually add brand_id to products and migrate data

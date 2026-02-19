@@ -35,6 +35,24 @@ router.get('/',
 
 /**
  * @swagger
+ * /payments/my-payments:
+ *   get:
+ *     summary: Get my payments (Doctor current user)
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of my payments
+ */
+router.get('/my-payments',
+    authenticateToken,
+    paymentController.getMyPayments
+);
+
+
+/**
+ * @swagger
  * /payments/stats:
  *   get:
  *     summary: Get payment financial statistics
