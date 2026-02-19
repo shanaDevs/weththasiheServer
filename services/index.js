@@ -5,6 +5,7 @@ const NotificationService = require('./notificationService');
 const PricingService = require('./pricingService');
 const InventoryService = require('./inventoryService');
 const PayHereService = require('./payhereService');
+const PdfService = require('./pdfService');
 
 module.exports = {
     AuditLogService,
@@ -13,5 +14,7 @@ module.exports = {
     NotificationService,
     PricingService,
     InventoryService,
-    PayHereService
+    PayHereService,
+    PdfService
 };
+

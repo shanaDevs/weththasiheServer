@@ -217,6 +217,9 @@ router.get('/',
  */
 router.get('/:id', authenticateToken, orderController.getOrder);
 router.get('/:id/payment-data', authenticateToken, orderController.getPaymentData);
+router.get('/:id/invoice', orderController.downloadInvoice);
+
+
 
 /**
  * @swagger

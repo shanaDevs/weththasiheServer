@@ -10,8 +10,18 @@ class PayHereService {
     }
 
     get merchantSecret() {
-        return (process.env.PAYHERE_SECRET || '').trim();
+        let secret = (process.env.PAYHERE_SECRET || '').trim();
+        // Check if it's base64 encoded (common if copied from certain dashboards)
+        if (secret.length > 20 && secret.endsWith('==')) {
+            try {
+                return Buffer.from(secret, 'base64').toString('utf-8');
+            } catch (e) {
+                return secret;
+            }
+        }
+        return secret;
     }
+
 
     get isSandbox() {
         return process.env.PAYHERE_SANDBOX === 'true';

@@ -136,6 +136,7 @@ exports.getAllPayments = async (req, res, next) => {
             search,
             doctorId,
             userId,
+            productId,
             sortBy = 'createdAt',
             sortOrder = 'DESC'
         } = req.query;
@@ -155,10 +156,16 @@ exports.getAllPayments = async (req, res, next) => {
             }
         }
 
-        // Build order include with optional doctor/user filters
+        // Build order include with optional doctor/user/product filters
         const orderWhere = {};
         if (doctorId) orderWhere.doctorId = doctorId;
         if (userId) orderWhere.userId = userId;
+
+        if (productId) {
+            orderWhere.id = {
+                [Op.in]: sequelize.literal(`(SELECT order_id FROM order_items WHERE product_id = ${parseInt(productId)})`)
+            };
+        }
 
         if (search) {
             where[Op.or] = [
@@ -475,7 +482,8 @@ exports.handlePayHereNotify = async (req, res, next) => {
 
         // 3. Process according to status code
         // 2 = Success, 0 = Pending, -1 = Canceled, -2 = Failed, -3 = Chargedback
-        if (status_code === '2') {
+        if (Number(status_code) === 2) {
+
             // Check if payment already recorded
             const existingPayment = await Payment.findOne({
                 where: { transactionId: payment_id },
@@ -507,11 +515,11 @@ exports.handlePayHereNotify = async (req, res, next) => {
 
                 await order.save({ transaction });
             }
-        } else if (status_code === '0') {
+        } else if (Number(status_code) === 0) {
             // Pending
             order.paymentStatus = 'pending';
             await order.save({ transaction });
-        } else if (status_code === '-1' || status_code === '-2' || status_code === '-3') {
+        } else if ([-1, -2, -3].includes(Number(status_code))) {
             // Canceled / Failed / Chargedback
             order.paymentStatus = 'failed';
 

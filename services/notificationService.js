@@ -1,6 +1,7 @@
 const EmailService = require('./emailService');
 const SMSService = require('./smsService');
 const { SystemSetting } = require('../models');
+const PdfService = require('./pdfService');
 
 /**
  * Notification Service - Unified interface for all notifications
@@ -63,8 +64,10 @@ class NotificationService {
             placeholders = {},
             referenceType = null,
             referenceId = null,
-            channels = null // null = use all enabled channels
+            channels = null, // null = use all enabled channels
+            attachments = []
         } = options;
+
 
         const settings = await this.getNotificationSettings();
         const results = {
@@ -95,7 +98,9 @@ class NotificationService {
                     to: email,
                     toName: `${firstName} ${lastName}`.trim(),
                     placeholders,
+                    attachments,
                     userId: user.id || user.userId,
+
                     referenceType,
                     referenceId
                 });
@@ -136,13 +141,26 @@ class NotificationService {
             payment_status: order.paymentStatus
         };
 
+        // Generate PDF Invoice for email attachment
+        let attachments = [];
+        try {
+            const pdfBuffer = await PdfService.generateOrderInvoiceBuffer(order);
+            attachments.push({
+                filename: `Invoice-${order.orderNumber}.pdf`,
+                content: pdfBuffer
+            });
+        } catch (pdfErr) {
+            console.error('Failed to generate PDF for email:', pdfErr.message);
+        }
+
         return this.send({
             user,
             emailTemplate: 'order_confirmation',
             smsTemplate: 'order_confirmation_sms',
             placeholders,
             referenceType: 'order',
-            referenceId: order.id
+            referenceId: order.id,
+            attachments // Pass attachments
         });
     }
 

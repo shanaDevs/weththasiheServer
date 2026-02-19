@@ -124,7 +124,8 @@ class EmailService {
             userId = null,
             referenceType = null,
             referenceId = null,
-            createdBy = null
+            createdBy = null,
+            attachments = []
         } = options;
 
         try {
@@ -157,7 +158,8 @@ class EmailService {
                 toName,
                 subject,
                 html: htmlBody,
-                text: textBody
+                text: textBody,
+                attachments
             });
 
             // Log the notification

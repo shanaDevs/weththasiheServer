@@ -5,7 +5,12 @@ const AuditLogService = require('../services/auditLogService');
 // Verify JWT token
 exports.verifyToken = async (req, res, next) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1]; // Bearer TOKEN
+        let token = req.headers.authorization?.split(' ')[1]; // Bearer TOKEN
+
+        // Support token in query for previews
+        if (!token && req.query.token) {
+            token = req.query.token;
+        }
 
         if (!token) {
             return res.status(401).json({
@@ -13,6 +18,7 @@ exports.verifyToken = async (req, res, next) => {
                 message: 'Access denied. No token provided.'
             });
         }
+
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
 

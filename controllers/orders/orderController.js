@@ -6,7 +6,7 @@ const {
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const {
-    AuditLogService, InventoryService, PricingService, NotificationService, PayHereService
+    AuditLogService, InventoryService, PricingService, NotificationService, PayHereService, PdfService
 } = require('../../services');
 
 /**
@@ -1006,3 +1006,49 @@ exports.downloadOrdersExcel = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * Download Professional Invoice PDF
+ */
+exports.downloadInvoice = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        const where = { isDeleted: false };
+        if (isNaN(id)) {
+            where.orderNumber = id;
+        } else {
+            where.id = id;
+        }
+
+        const order = await Order.findOne({
+
+            where,
+            include: [
+                { model: OrderItem, as: 'items' },
+                { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'phone', 'email'] },
+                { model: Doctor, as: 'doctor' },
+                { model: Payment, as: 'payments' }
+            ]
+        });
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+
+        // Set response headers
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=Invoice-${order.orderNumber}.pdf`);
+
+        // Generate PDF
+        await PdfService.generateOrderInvoice(order, res);
+
+    } catch (error) {
+        console.error('Invoice download error:', error);
+        next(error);
+    }
+};
+
