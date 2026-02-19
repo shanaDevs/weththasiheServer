@@ -169,39 +169,9 @@ exports.createPromotion = async (req, res, next) => {
             discountValue: promotion.discountValue
         });
 
-        // Notify doctors about the new promotion
-        try {
-            const doctors = await User.findAll({
-                include: [{
-                    model: Doctor,
-                    as: 'doctorProfile',
-                    where: { status: 'active' }
-                }],
-                where: { isDisabled: false, isDeleted: false }
-            });
-
-            for (const doctorUser of doctors) {
-                await NotificationService.send({
-                    user: doctorUser,
-                    emailTemplate: 'new_promotion',
-                    smsTemplate: 'new_promotion_sms',
-                    placeholders: {
-                        doctor_name: `Dr. ${doctorUser.firstName} ${doctorUser.lastName}`,
-                        promotion_name: promotion.name,
-                        promotion_description: promotion.description || '',
-                        promotion_type: promotion.type,
-                        discount_value: promotion.discountValue,
-                        expiry_date: promotion.endDate ? new Date(promotion.endDate).toLocaleDateString() : 'N/A'
-                    }
-                });
-            }
-        } catch (notifyError) {
-            console.error('Failed to send promotion notifications:', notifyError.message);
-        }
-
         res.status(201).json({
             success: true,
-            message: 'Promotion created successfully and notifications sent.',
+            message: 'Promotion created successfully',
             data: promotion
         });
     } catch (error) {
@@ -324,7 +294,7 @@ exports.getPromotionProducts = async (req, res, next) => {
 
         // Exclude products
         if (promotion.excludedProducts && promotion.excludedProducts.length > 0) {
-            where.id = where.id
+            where.id = where.id 
                 ? { [Op.and]: [where.id, { [Op.notIn]: promotion.excludedProducts }] }
                 : { [Op.notIn]: promotion.excludedProducts };
         }

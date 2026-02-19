@@ -24,9 +24,13 @@ class EmailService {
             host: settings.host,
             port: settings.port,
             secure: settings.secure,
+            requireTLS: settings.port === 587,
             auth: {
                 user: settings.user,
                 pass: settings.password
+            },
+            tls: {
+                rejectUnauthorized: false
             }
         });
 
@@ -38,14 +42,15 @@ class EmailService {
      */
     static async getEmailSettings() {
         const defaultSettings = {
-            enabled: process.env.EMAIL_ENABLED === 'true',
-            host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-            port: parseInt(process.env.EMAIL_PORT) || 587,
+            enabled: (process.env.EMAIL_ENABLED === 'true') ||
+                (!!process.env.EMAIL_USER && !!(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS)),
+            host: process.env.EMAIL_HOST || process.env.SMTP_HOST || 'smtp.gmail.com',
+            port: parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT) || 587,
             secure: process.env.EMAIL_SECURE === 'true',
-            user: process.env.EMAIL_USER,
-            password: process.env.EMAIL_PASSWORD,
+            user: process.env.EMAIL_USER || process.env.SMTP_USER,
+            password: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || process.env.SMTP_PASS,
             fromName: process.env.EMAIL_FROM_NAME || 'MediBulk',
-            fromEmail: process.env.EMAIL_FROM_EMAIL || 'noreply@medibulk.com'
+            fromEmail: process.env.EMAIL_FROM_EMAIL || process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@medibulk.com'
         };
 
         try {
@@ -142,8 +147,8 @@ class EmailService {
             // Replace placeholders
             const subject = this.replacePlaceholders(template.emailSubject, placeholders);
             const htmlBody = this.replacePlaceholders(template.emailBody, placeholders);
-            const textBody = template.emailBodyPlain 
-                ? this.replacePlaceholders(template.emailBodyPlain, placeholders) 
+            const textBody = template.emailBodyPlain
+                ? this.replacePlaceholders(template.emailBodyPlain, placeholders)
                 : this.stripHtml(htmlBody);
 
             // Send email
@@ -207,8 +212,10 @@ class EmailService {
         const { to, toName, subject, html, text, attachments = [] } = options;
 
         try {
+            console.log(`📧 Attempting to send email to: ${to} | Subject: ${subject}`);
             const transporter = await this.initTransporter();
             if (!transporter) {
+                console.warn('⚠️ Email transporter not available. Tracking settings enabled?');
                 return { success: false, reason: 'Email transporter not available' };
             }
 
@@ -224,13 +231,14 @@ class EmailService {
             };
 
             const info = await transporter.sendMail(mailOptions);
+            console.log(`✅ Email sent successfully! MessageID: ${info.messageId}`);
 
             return {
                 success: true,
                 messageId: info.messageId
             };
         } catch (error) {
-            console.error('Failed to send email:', error.message);
+            console.error('❌ Failed to send email:', error.message);
             return {
                 success: false,
                 error: error.message

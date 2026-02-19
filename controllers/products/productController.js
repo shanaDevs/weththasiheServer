@@ -1,4 +1,4 @@
-const { Product, Category, Tax, ProductBulkPrice, sequelize } = require('../../models');
+const { Product, Category, Agency, Brand, Tax, ProductBulkPrice, sequelize } = require('../../models');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const { AuditLogService, InventoryService, PricingService } = require('../../services');
@@ -35,7 +35,8 @@ exports.getProducts = async (req, res, next) => {
             where[Op.or] = [
                 { name: { [Op.like]: `%${search}%` } },
                 { genericName: { [Op.like]: `%${search}%` } },
-                { manufacturer: { [Op.like]: `%${search}%` } },
+                { '$agency.name$': { [Op.like]: `%${search}%` } },
+                { brand: { [Op.like]: `%${search}%` } },
                 { sku: { [Op.like]: `%${search}%` } },
                 { '$category.name$': { [Op.like]: `%${search}%` } }
             ];
@@ -55,6 +56,11 @@ exports.getProducts = async (req, res, next) => {
                     model: Category,
                     as: 'category',
                     attributes: ['id', 'name', 'slug']
+                },
+                {
+                    model: require('../../models').Agency, // Or access if imported
+                    as: 'agency',
+                    attributes: ['id', 'name']
                 },
                 {
                     model: ProductBulkPrice,
@@ -276,14 +282,19 @@ exports.createProduct = async (req, res, next) => {
             shortDescription,
             genericName,
             manufacturer,
+            brand,
             dosageForm,
             strength,
             packSize,
             requiresPrescription,
             categoryId,
             costPrice,
+            retailPrice,
+            wholesalePrice,
+            distributorPrice,
             sellingPrice,
             mrp,
+            agencyId,
             minOrderQuantity,
             bulkPriceEnabled,
             bulkPrices,
@@ -315,6 +326,27 @@ exports.createProduct = async (req, res, next) => {
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/(^-|-$)/g, '') + '-' + Date.now();
 
+        // Resolve or create Brand
+        let resolvedBrandId = null;
+        if (req.body.brand) {
+            try {
+                const [brandRecord] = await Brand.findOrCreate({
+                    where: { name: req.body.brand },
+                    defaults: {
+                        slug: req.body.brand.toLowerCase()
+                            .replace(/[^a-z0-9]+/g, '-')
+                            .replace(/(^-|-$)/g, '') + '-' + Date.now(),
+                        isActive: true,
+                        createdBy: req.user.id
+                    },
+                    transaction
+                });
+                resolvedBrandId = brandRecord.id;
+            } catch (err) {
+                console.warn('Brand resolution failed:', err);
+            }
+        }
+
         const product = await Product.create({
             name,
             slug,
@@ -324,14 +356,20 @@ exports.createProduct = async (req, res, next) => {
             shortDescription,
             genericName,
             manufacturer,
+            brand,
+            brandId: resolvedBrandId,
             dosageForm,
             strength,
             packSize,
             requiresPrescription: requiresPrescription || false,
             categoryId,
             costPrice: costPrice || 0,
+            retailPrice: retailPrice || 0,
+            wholesalePrice: wholesalePrice || 0,
+            distributorPrice: distributorPrice || 0,
             sellingPrice,
             mrp,
+            agencyId,
             minOrderQuantity: minOrderQuantity || 1,
             bulkPriceEnabled: bulkPriceEnabled || false,
             taxEnabled: taxEnabled !== false,
@@ -430,18 +468,39 @@ exports.updateProduct = async (req, res, next) => {
             });
         }
 
+        // Resolve Brand ID if brand name is updated
+        if (req.body.brand && req.body.brand !== product.brand) {
+            try {
+                const [brandRecord] = await Brand.findOrCreate({
+                    where: { name: req.body.brand },
+                    defaults: {
+                        slug: req.body.brand.toLowerCase()
+                            .replace(/[^a-z0-9]+/g, '-')
+                            .replace(/(^-|-$)/g, '') + '-' + Date.now(),
+                        isActive: true,
+                        createdBy: req.user.id
+                    },
+                    transaction
+                });
+                req.body.brandId = brandRecord.id;
+            } catch (err) {
+                console.warn('Brand resolution failed in update:', err);
+            }
+        }
+
         const previousData = product.toJSON();
 
         // Update fields
         const updateFields = [
             'name', 'description', 'shortDescription', 'genericName',
-            'manufacturer', 'dosageForm', 'strength', 'packSize',
-            'requiresPrescription', 'categoryId', 'costPrice', 'sellingPrice',
-            'mrp', 'minOrderQuantity', 'bulkPriceEnabled', 'taxEnabled',
-            'taxPercentage', 'taxId', 'stockQuantity', 'lowStockThreshold',
-            'trackInventory', 'allowBackorder', 'images', 'thumbnail',
-            'status', 'isFeatured', 'expiryDate', 'batchNumber',
-            'weight', 'length', 'width', 'height',
+            'manufacturer', 'brand', 'brandId', 'dosageForm', 'strength', 'packSize',
+            'requiresPrescription', 'categoryId', 'costPrice',
+            'retailPrice', 'wholesalePrice', 'distributorPrice',
+            'sellingPrice', 'mrp', 'agencyId', 'minOrderQuantity',
+            'bulkPriceEnabled', 'taxEnabled', 'taxPercentage', 'taxId',
+            'stockQuantity', 'lowStockThreshold', 'trackInventory',
+            'allowBackorder', 'images', 'thumbnail', 'status', 'isFeatured',
+            'expiryDate', 'batchNumber', 'weight', 'length', 'width', 'height',
             'metaTitle', 'metaDescription', 'metaKeywords', 'priority'
         ];
 
@@ -703,6 +762,27 @@ exports.bulkUpdate = async (req, res, next) => {
             success: true,
             message: 'Bulk update completed',
             data: results
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+/**
+ * Get distinct manufacturers (brands)
+ */
+exports.getManufacturers = async (req, res, next) => {
+    try {
+        const brands = await Brand.findAll({
+            where: { isActive: true },
+            order: [['name', 'ASC']],
+            attributes: ['name']
+        });
+
+        res.json({
+            success: true,
+            data: brands.map(b => b.name)
         });
     } catch (error) {
         next(error);

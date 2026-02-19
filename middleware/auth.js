@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { User, Permission, Role, RolePermission } = require('../models');
+const { User, Permission, Role, RolePermission, Doctor } = require('../models');
 const AuditLogService = require('../services/auditLogService');
 
 // Verify JWT token
@@ -15,17 +15,27 @@ exports.verifyToken = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-        
-        // Fetch user with role to get role details
-        const user = await User.findByPk(decoded.id, {
-            include: [{
-                model: Role,
-                as: 'role',
-                attributes: ['id', 'name', 'displayName', 'level']
-            }]
-        });
 
-        if (!user || !user.role) {
+        // Support both User and Doctor accounts
+        let account;
+        if (decoded.isDoctorAccount) {
+            account = await Doctor.findByPk(decoded.id);
+            if (account) {
+                // Standalone doctors use a virtual/looked-up role
+                const doctorRole = await Role.findOne({ where: { name: 'doctor' } });
+                account.role = doctorRole || { id: 0, name: 'doctor', displayName: 'Doctor', level: 15 };
+            }
+        } else {
+            account = await User.findByPk(decoded.id, {
+                include: [{
+                    model: Role,
+                    as: 'role',
+                    attributes: ['id', 'name', 'displayName', 'level']
+                }]
+            });
+        }
+
+        if (!account || !account.role) {
             return res.status(401).json({
                 success: false,
                 message: 'Invalid user or role not found'
@@ -33,18 +43,20 @@ exports.verifyToken = async (req, res, next) => {
         }
 
         req.user = {
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            phone: user.phone,
-            userName: user.userName,
-            roleId: user.roleId,
-            roleName: user.role.name,
-            roleLevel: user.role.level
+            id: account.id,
+            firstName: account.firstName,
+            lastName: account.lastName,
+            phone: account.phone,
+            userName: account.userName,
+            roleId: account.role.id,
+            roleName: account.role.name,
+            roleLevel: account.role.level,
+            isDoctorAccount: !!decoded.isDoctorAccount
         };
-        
+
         next();
     } catch (error) {
+        console.error('JWT Verification Error:', error.message);
         return res.status(401).json({
             success: false,
             message: 'Invalid or expired token'
@@ -65,7 +77,7 @@ exports.optionalAuth = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-        
+
         const user = await User.findByPk(decoded.id, {
             include: [{
                 model: Role,

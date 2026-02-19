@@ -5,9 +5,32 @@ const { authenticateToken, requirePermission } = require('../../middleware/auth'
 const { queryValidators } = require('../../validators');
 
 /**
- * @route   GET /api/audit-logs
- * @desc    Get audit logs
- * @access  Admin
+ * @swagger
+ * /audit-logs:
+ *   get:
+ *     summary: Get all audit logs
+ *     tags: [Audit Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageParam'
+ *       - $ref: '#/components/parameters/LimitParam'
+ *       - $ref: '#/components/parameters/SearchParam'
+ *       - in: query
+ *         name: startDate
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: endDate
+ *         schema: { type: string, format: date }
+ *     responses:
+ *       200:
+ *         description: List of audit logs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PaginatedResponse'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
  */
 router.get('/',
     authenticateToken,
@@ -18,9 +41,23 @@ router.get('/',
 );
 
 /**
- * @route   GET /api/audit-logs/stats
- * @desc    Get audit statistics
- * @access  Admin
+ * @swagger
+ * /audit-logs/stats:
+ *   get:
+ *     summary: Get audit statistics
+ *     tags: [Audit Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: endDate
+ *         schema: { type: string, format: date }
+ *     responses:
+ *       200:
+ *         description: Audit statistics
  */
 router.get('/stats',
     authenticateToken,
@@ -30,9 +67,19 @@ router.get('/stats',
 );
 
 /**
- * @route   GET /api/audit-logs/logins
- * @desc    Get login history
- * @access  Admin
+ * @swagger
+ * /audit-logs/logins:
+ *   get:
+ *     summary: Get login history
+ *     tags: [Audit Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageParam'
+ *       - $ref: '#/components/parameters/LimitParam'
+ *     responses:
+ *       200:
+ *         description: Login history
  */
 router.get('/logins',
     authenticateToken,
@@ -43,9 +90,16 @@ router.get('/logins',
 );
 
 /**
- * @route   GET /api/audit-logs/export
- * @desc    Export audit logs
- * @access  Admin
+ * @swagger
+ * /audit-logs/export:
+ *   get:
+ *     summary: Export audit logs to CSV
+ *     tags: [Audit Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: CSV file download
  */
 router.get('/export',
     authenticateToken,
@@ -55,9 +109,21 @@ router.get('/export',
 );
 
 /**
- * @route   GET /api/audit-logs/user/:userId
- * @desc    Get user activity
- * @access  Admin
+ * @swagger
+ * /audit-logs/user/{userId}:
+ *   get:
+ *     summary: Get specific user activity
+ *     tags: [Audit Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: User activity logs
  */
 router.get('/user/:userId',
     authenticateToken,
@@ -67,9 +133,25 @@ router.get('/user/:userId',
 );
 
 /**
- * @route   GET /api/audit-logs/entity/:entityType/:entityId
- * @desc    Get entity history
- * @access  Admin
+ * @swagger
+ * /audit-logs/entity/{entityType}/{entityId}:
+ *   get:
+ *     summary: Get history of a specific entity
+ *     tags: [Audit Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: entityType
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: entityId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Entity history
  */
 router.get('/entity/:entityType/:entityId',
     authenticateToken,
@@ -79,9 +161,21 @@ router.get('/entity/:entityType/:entityId',
 );
 
 /**
- * @route   GET /api/audit-logs/:id
- * @desc    Get single audit log
- * @access  Admin
+ * @swagger
+ * /audit-logs/{id}:
+ *   get:
+ *     summary: Get single audit log detail
+ *     tags: [Audit Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Audit log details
  */
 router.get('/:id',
     authenticateToken,

@@ -17,9 +17,21 @@ exports.productValidators = {
         body('sellingPrice')
             .notEmpty().withMessage('Selling price is required')
             .isFloat({ min: 0 }).withMessage('Price must be a positive number'),
+        body('retailPrice')
+            .optional()
+            .isFloat({ min: 0 }).withMessage('Retail price must be a positive number'),
+        body('wholesalePrice')
+            .optional()
+            .isFloat({ min: 0 }).withMessage('Wholesale price must be a positive number'),
+        body('distributorPrice')
+            .optional()
+            .isFloat({ min: 0 }).withMessage('Distributor price must be a positive number'),
         body('mrp')
             .optional()
             .isFloat({ min: 0 }).withMessage('MRP must be a positive number'),
+        body('agencyId')
+            .optional()
+            .isInt().withMessage('Invalid agency ID'),
         body('costPrice')
             .optional()
             .isFloat({ min: 0 }).withMessage('Cost price must be a positive number'),
@@ -75,6 +87,18 @@ exports.productValidators = {
         body('sellingPrice')
             .optional()
             .isFloat({ min: 0 }).withMessage('Price must be a positive number'),
+        body('retailPrice')
+            .optional()
+            .isFloat({ min: 0 }).withMessage('Retail price must be a positive number'),
+        body('wholesalePrice')
+            .optional()
+            .isFloat({ min: 0 }).withMessage('Wholesale price must be a positive number'),
+        body('distributorPrice')
+            .optional()
+            .isFloat({ min: 0 }).withMessage('Distributor price must be a positive number'),
+        body('agencyId')
+            .optional()
+            .isInt().withMessage('Invalid agency ID'),
         body('stockQuantity')
             .optional()
             .isInt({ min: 0 }).withMessage('Stock must be a non-negative integer'),
@@ -249,6 +273,28 @@ exports.doctorValidators = {
         body('paymentTerms')
             .optional()
             .isInt({ min: 1, max: 90 }).withMessage('Payment terms must be 1-90 days')
+    ],
+
+    publicRegister: [
+        body('firstName').notEmpty().withMessage('First name is required'),
+        body('phone')
+            .notEmpty().withMessage('Phone is required')
+            .isLength({ min: 9, max: 11 }).withMessage('Phone must be 9-11 digits')
+            .matches(/^\d+$/).withMessage('Phone must contain only digits'),
+        body('userName')
+            .notEmpty().withMessage('Username is required')
+            .isLength({ min: 3, max: 50 }).withMessage('Username must be 3-50 characters'),
+        body('password')
+            .notEmpty().withMessage('Password is required')
+            .isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+        body('email')
+            .notEmpty().withMessage('Email is required')
+            .isEmail().withMessage('Invalid email format'),
+        body('licenseNumber')
+            .notEmpty().withMessage('License number is required'),
+        body('hospitalClinic')
+            .optional()
+            .isLength({ max: 255 }).withMessage('Clinic name max 255 characters')
     ]
 };
 
@@ -481,8 +527,22 @@ exports.settingsValidators = {
  */
 exports.userValidators = {
     login: [
+        // Accept identifier (generic), phone, or userName — at least one must be present
+        body('identifier')
+            .optional()
+            .isLength({ min: 1 }).withMessage('Identifier cannot be empty'),
+        body('phone')
+            .optional()
+            .isLength({ min: 1 }).withMessage('Phone cannot be empty'),
         body('userName')
-            .notEmpty().withMessage('Username/phone is required'),
+            .optional()
+            .isLength({ min: 1 }).withMessage('Username cannot be empty'),
+        body().custom((_, { req }) => {
+            if (!req.body.identifier && !req.body.phone && !req.body.userName) {
+                throw new Error('Phone or username is required');
+            }
+            return true;
+        }),
         body('password')
             .notEmpty().withMessage('Password is required')
     ],
@@ -556,3 +616,30 @@ exports.queryValidators = {
             .isLength({ max: 100 }).withMessage('Search max 100 characters')
     ]
 };
+
+/**
+ * Agency Validators
+ */
+exports.agencyValidators = {
+    create: [
+        body('name')
+            .notEmpty().withMessage('Agency name is required')
+            .isLength({ min: 2, max: 255 }).withMessage('Name must be 2-255 characters'),
+        body('code')
+            .optional()
+            .isLength({ max: 50 }).withMessage('Code max 50 characters'),
+        body('email')
+            .optional()
+            .isEmail().withMessage('Invalid email format'),
+        body('phone')
+            .optional()
+            .isLength({ max: 20 }).withMessage('Phone max 20 characters')
+    ],
+    update: [
+        param('id').isInt().withMessage('Invalid agency ID'),
+        body('name')
+            .optional()
+            .isLength({ min: 2, max: 255 }).withMessage('Name must be 2-255 characters')
+    ]
+};
+

@@ -5,9 +5,23 @@ const { authenticateToken, requirePermission } = require('../../middleware/auth'
 const { discountValidators, queryValidators } = require('../../validators');
 
 /**
- * @route   GET /api/discounts
- * @desc    Get all discounts
- * @access  Admin
+ * @swagger
+ * /discounts:
+ *   get:
+ *     summary: Get all discounts (Admin only)
+ *     tags: [Discounts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageParam'
+ *       - $ref: '#/components/parameters/LimitParam'
+ *     responses:
+ *       200:
+ *         description: List of discounts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PaginatedResponse'
  */
 router.get('/',
     authenticateToken,
@@ -17,9 +31,25 @@ router.get('/',
 );
 
 /**
- * @route   GET /api/discounts/:id
- * @desc    Get discount by ID
- * @access  Admin
+ * @swagger
+ * /discounts/{id}:
+ *   get:
+ *     summary: Get discount by ID (Admin only)
+ *     tags: [Discounts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Discount details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Discount'
  */
 router.get('/:id',
     authenticateToken,
@@ -28,9 +58,26 @@ router.get('/:id',
 );
 
 /**
- * @route   POST /api/discounts
- * @desc    Create discount
- * @access  Admin
+ * @swagger
+ * /discounts:
+ *   post:
+ *     summary: Create new discount (Admin only)
+ *     tags: [Discounts]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Discount'
+ *     responses:
+ *       201:
+ *         description: Discount created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
  */
 router.post('/',
     authenticateToken,
@@ -40,9 +87,27 @@ router.post('/',
 );
 
 /**
- * @route   PUT /api/discounts/:id
- * @desc    Update discount
- * @access  Admin
+ * @swagger
+ * /discounts/{id}:
+ *   put:
+ *     summary: Update discount (Admin only)
+ *     tags: [Discounts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Discount'
+ *     responses:
+ *       200:
+ *         description: Discount updated
  */
 router.put('/:id',
     authenticateToken,
@@ -52,9 +117,21 @@ router.put('/:id',
 );
 
 /**
- * @route   DELETE /api/discounts/:id
- * @desc    Delete discount
- * @access  Admin
+ * @swagger
+ * /discounts/{id}:
+ *   delete:
+ *     summary: Delete discount (Admin only)
+ *     tags: [Discounts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Discount deleted
  */
 router.delete('/:id',
     authenticateToken,
@@ -63,9 +140,30 @@ router.delete('/:id',
 );
 
 /**
- * @route   POST /api/discounts/validate
- * @desc    Validate discount code
- * @access  Private
+ * @swagger
+ * /discounts/validate:
+ *   post:
+ *     summary: Validate a discount code
+ *     tags: [Discounts]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [code, orderAmount]
+ *             properties:
+ *               code: { type: string }
+ *               orderAmount: { type: number }
+ *     responses:
+ *       200:
+ *         description: Validation result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
  */
 router.post('/validate',
     authenticateToken,

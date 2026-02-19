@@ -92,6 +92,28 @@ module.exports = (sequelize) => {
             field: 'category_ids',
             comment: 'Array of category IDs included in promotion'
         },
+        agencyIds: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            field: 'agency_ids',
+            comment: 'Array of agency IDs included in promotion'
+        },
+        brandIds: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            field: 'brand_ids',
+            comment: 'Array of brand IDs included in promotion'
+        },
+        manufacturers: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            comment: 'Array of manufacturer/brand names included'
+        },
+        batchIds: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            comment: 'Array of batch IDs included'
+        },
         // Conditions
         minPurchaseAmount: {
             type: DataTypes.DECIMAL(12, 2),

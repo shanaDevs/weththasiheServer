@@ -15,20 +15,68 @@ exports.getCategories = async (req, res, next) => {
             where.isActive = true;
         }
 
+        // Child filter — when includeInactive is set (admin view), show all children
+        const childWhere = includeInactive
+            ? { isDeleted: false }
+            : { isDeleted: false, isActive: true };
+
         const categories = await Category.findAll({
             where,
-            include: flat ? [] : [{
-                model: Category,
-                as: 'children',
-                where: { isDeleted: false, isActive: true },
-                required: false,
-                include: [{
+            attributes: {
+                include: [
+                    [
+                        sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM products AS p
+                            WHERE p.category_id = Category.id
+                              AND p.is_deleted = false
+                        )`),
+                        'productCount'
+                    ]
+                ]
+            },
+            include: flat ? [] : [
+                {
                     model: Category,
                     as: 'children',
-                    where: { isDeleted: false, isActive: true },
-                    required: false
-                }]
-            }],
+                    where: childWhere,
+                    required: false,
+                    attributes: {
+                        include: [
+                            [
+                                sequelize.literal(`(
+                                    SELECT COUNT(*)
+                                    FROM products AS p
+                                    WHERE p.category_id = \`children\`.id
+                                      AND p.is_deleted = false
+                                )`),
+                                'productCount'
+                            ]
+                        ]
+                    },
+                    include: [
+                        {
+                            model: Category,
+                            as: 'children',
+                            where: childWhere,
+                            required: false,
+                            attributes: {
+                                include: [
+                                    [
+                                        sequelize.literal(`(
+                                            SELECT COUNT(*)
+                                            FROM products AS p
+                                            WHERE p.category_id = \`children->children\`.id
+                                              AND p.is_deleted = false
+                                        )`),
+                                        'productCount'
+                                    ]
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ],
             order: [['sortOrder', 'ASC'], ['name', 'ASC']]
         });
 

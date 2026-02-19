@@ -4,10 +4,13 @@ const router = express.Router();
 // Import route files
 // Users & Auth
 router.use('/users', require('./users/userRouter'));
+router.use('/roles', require('./users/roleRouter'));
 
 // Products & Categories
 router.use('/products', require('./products/productRouter'));
 router.use('/categories', require('./products/categoryRouter'));
+router.use('/agencies', require('./products/agencyRouter'));
+router.use('/brands', require('./products/brandRouter'));
 
 // Orders & Cart
 router.use('/orders', require('./orders/orderRouter'));
@@ -27,6 +30,10 @@ router.use('/payments', require('./payments/paymentRouter'));
 // Settings & Audit
 router.use('/settings', require('./settings/settingsRouter'));
 router.use('/audit-logs', require('./audit/auditRouter'));
+
+// Inventory
+router.use('/suppliers', require('./inventory/supplierRouter'));
+router.use('/purchase-orders', require('./inventory/purchaseOrderRouter'));
 
 // Upload
 router.use('/upload', require('./upload'));

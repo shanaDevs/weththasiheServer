@@ -1,4 +1,4 @@
-const { Payment, Order, OrderItem, Doctor, sequelize } = require('../../models');
+const { Payment, Order, OrderItem, Doctor, User, Product, sequelize } = require('../../models');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const { AuditLogService, NotificationService, PayHereService, InventoryService } = require('../../services');
@@ -134,6 +134,8 @@ exports.getAllPayments = async (req, res, next) => {
             startDate,
             endDate,
             search,
+            doctorId,
+            userId,
             sortBy = 'createdAt',
             sortOrder = 'DESC'
         } = req.query;
@@ -146,13 +148,22 @@ exports.getAllPayments = async (req, res, next) => {
         if (startDate || endDate) {
             where.createdAt = {};
             if (startDate) where.createdAt[Op.gte] = new Date(startDate);
-            if (endDate) where.createdAt[Op.lte] = new Date(endDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                where.createdAt[Op.lte] = end;
+            }
         }
+
+        // Build order include with optional doctor/user filters
+        const orderWhere = {};
+        if (doctorId) orderWhere.doctorId = doctorId;
+        if (userId) orderWhere.userId = userId;
 
         if (search) {
             where[Op.or] = [
                 { transactionId: { [Op.like]: `%${search}%` } },
-                { '$order.orderNumber$': { [Op.like]: `%${search}%` } }
+                { notes: { [Op.like]: `%${search}%` } }
             ];
         }
 
@@ -162,12 +173,46 @@ exports.getAllPayments = async (req, res, next) => {
                 {
                     model: Order,
                     as: 'order',
-                    attributes: ['id', 'orderNumber', 'total', 'userId']
+                    where: Object.keys(orderWhere).length > 0 ? orderWhere : undefined,
+                    attributes: ['id', 'orderNumber', 'total', 'paidAmount', 'dueAmount', 'userId', 'doctorId', 'paymentStatus', 'status', 'createdAt'],
+                    include: [
+                        {
+                            model: User,
+                            as: 'user',
+                            attributes: ['id', 'firstName', 'lastName', 'userName', 'phone']
+                        },
+                        {
+                            model: Doctor,
+                            as: 'doctor',
+                            attributes: ['id', 'licenseNumber', 'hospitalClinic', 'specialization'],
+                            include: [{
+                                model: User,
+                                as: 'user',
+                                attributes: ['id', 'firstName', 'lastName', 'userName', 'phone']
+                            }]
+                        },
+                        {
+                            model: OrderItem,
+                            as: 'items',
+                            attributes: ['id', 'productId', 'productName', 'quantity', 'unitPrice', 'total'],
+                        }
+                    ]
+                },
+                {
+                    model: User,
+                    as: 'creator',
+                    attributes: ['id', 'firstName', 'lastName', 'userName']
+                },
+                {
+                    model: User,
+                    as: 'refunder',
+                    attributes: ['id', 'firstName', 'lastName', 'userName']
                 }
             ],
             order: [[sortBy, sortOrder]],
             limit: parseInt(limit),
-            offset: (parseInt(page) - 1) * parseInt(limit)
+            offset: (parseInt(page) - 1) * parseInt(limit),
+            distinct: true
         });
 
         res.json({
@@ -178,7 +223,7 @@ exports.getAllPayments = async (req, res, next) => {
                     total: count,
                     page: parseInt(page),
                     limit: parseInt(limit),
-                    totalPages: Math.ceil(count / limit)
+                    totalPages: Math.ceil(count / parseInt(limit))
                 }
             }
         });
@@ -335,12 +380,74 @@ exports.getPaymentStats = async (req, res, next) => {
     }
 };
 /**
+ * Verify order payment status (used by frontend success/cancel pages)
+ * GET /payments/verify/:orderNumber
+ */
+exports.verifyOrderPayment = async (req, res, next) => {
+    try {
+        const { orderNumber } = req.params;
+
+        const order = await Order.findOne({
+            where: {
+                orderNumber,
+                userId: req.user.id,
+                isDeleted: false
+            },
+            include: [
+                {
+                    model: OrderItem,
+                    as: 'items',
+                    include: [{
+                        model: Product,
+                        as: 'product',
+                        attributes: ['id', 'name', 'slug', 'thumbnail']
+                    }]
+                },
+                {
+                    model: Payment,
+                    as: 'payments',
+                    order: [['createdAt', 'DESC']]
+                }
+            ]
+        });
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                orderNumber: order.orderNumber,
+                status: order.status,
+                paymentStatus: order.paymentStatus,
+                paymentMethod: order.paymentMethod,
+                total: order.total,
+                paidAmount: order.paidAmount,
+                dueAmount: order.dueAmount,
+                itemCount: order.itemCount,
+                items: order.items,
+                payments: order.payments,
+                createdAt: order.createdAt
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
  * Handle PayHere IPN Notification
  */
 exports.handlePayHereNotify = async (req, res, next) => {
     const transaction = await sequelize.transaction();
     try {
         const data = req.body;
+
+        console.log('--- [PayHere IPN] Received ---', JSON.stringify(data));
 
         // 1. Verify Hash
         if (!PayHereService.verifyIpnHash(data)) {
@@ -363,6 +470,8 @@ exports.handlePayHereNotify = async (req, res, next) => {
             console.error('Order not found for PayHere IPN', order_id);
             return res.status(404).send('Order not found');
         }
+
+        console.log(`[PayHere IPN] Order ${order_id} - status_code: ${status_code}`);
 
         // 3. Process according to status code
         // 2 = Success, 0 = Pending, -1 = Canceled, -2 = Failed, -3 = Chargedback
@@ -391,20 +500,7 @@ exports.handlePayHereNotify = async (req, res, next) => {
 
                 if (order.dueAmount <= 0) {
                     order.paymentStatus = 'paid';
-                    order.status = 'confirmed'; // Auto-confirm if paid
-
-                    // Reduce stock for each item
-                    for (const item of order.items) {
-                        await InventoryService.reduceStock(
-                            item.productId,
-                            item.quantity,
-                            'order',
-                            order.id,
-                            order.orderNumber,
-                            req,
-                            transaction
-                        );
-                    }
+                    order.status = 'confirmed'; // Auto-confirm if fully paid
                 } else {
                     order.paymentStatus = 'partial';
                 }
@@ -412,10 +508,42 @@ exports.handlePayHereNotify = async (req, res, next) => {
                 await order.save({ transaction });
             }
         } else if (status_code === '0') {
+            // Pending
             order.paymentStatus = 'pending';
             await order.save({ transaction });
-        } else if (status_code === '-1' || status_code === '-2') {
+        } else if (status_code === '-1' || status_code === '-2' || status_code === '-3') {
+            // Canceled / Failed / Chargedback
             order.paymentStatus = 'failed';
+
+            // Only cancel the order if it was still pending
+            if (order.status === 'pending') {
+                order.status = 'cancelled';
+                order.cancelledAt = new Date();
+                order.cancelReason = status_code === '-1' ? 'Payment cancelled by customer' :
+                    status_code === '-2' ? 'Payment failed' : 'Payment charged back';
+
+                // Release reserved stock
+                for (const item of order.items) {
+                    try {
+                        await InventoryService.releaseReservedStock(
+                            item.productId,
+                            item.quantity,
+                            order.orderNumber,
+                            req,
+                            transaction
+                        );
+                    } catch (stockErr) {
+                        console.error(`Failed to release stock for product ${item.productId}:`, stockErr.message);
+                    }
+                }
+
+                // Update items status
+                await OrderItem.update(
+                    { status: 'cancelled' },
+                    { where: { orderId: order.id }, transaction }
+                );
+            }
+
             await order.save({ transaction });
         }
 

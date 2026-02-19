@@ -5,9 +5,16 @@ const { authenticateToken, requirePermission } = require('../../middleware/auth'
 const { taxValidators } = require('../../validators');
 
 /**
- * @route   GET /api/taxes
- * @desc    Get all taxes
- * @access  Admin
+ * @swagger
+ * /taxes:
+ *   get:
+ *     summary: Get all tax configurations (Admin only)
+ *     tags: [Taxes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of taxes
  */
 router.get('/',
     authenticateToken,
@@ -16,9 +23,25 @@ router.get('/',
 );
 
 /**
- * @route   GET /api/taxes/:id
- * @desc    Get tax by ID
- * @access  Admin
+ * @swagger
+ * /taxes/{id}:
+ *   get:
+ *     summary: Get tax configuration by ID (Admin only)
+ *     tags: [Taxes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Tax details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Tax'
  */
 router.get('/:id',
     authenticateToken,
@@ -27,9 +50,22 @@ router.get('/:id',
 );
 
 /**
- * @route   POST /api/taxes
- * @desc    Create tax
- * @access  Admin
+ * @swagger
+ * /taxes:
+ *   post:
+ *     summary: Create new tax configuration (Admin only)
+ *     tags: [Taxes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Tax'
+ *     responses:
+ *       201:
+ *         description: Tax created
  */
 router.post('/',
     authenticateToken,
@@ -39,9 +75,27 @@ router.post('/',
 );
 
 /**
- * @route   PUT /api/taxes/:id
- * @desc    Update tax
- * @access  Admin
+ * @swagger
+ * /taxes/{id}:
+ *   put:
+ *     summary: Update tax configuration (Admin only)
+ *     tags: [Taxes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Tax'
+ *     responses:
+ *       200:
+ *         description: Tax updated
  */
 router.put('/:id',
     authenticateToken,
@@ -51,9 +105,21 @@ router.put('/:id',
 );
 
 /**
- * @route   DELETE /api/taxes/:id
- * @desc    Delete tax
- * @access  Admin
+ * @swagger
+ * /taxes/{id}:
+ *   delete:
+ *     summary: Delete tax configuration (Admin only)
+ *     tags: [Taxes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Tax deleted
  */
 router.delete('/:id',
     authenticateToken,

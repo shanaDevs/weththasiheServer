@@ -155,6 +155,45 @@ exports.getOrder = async (req, res, next) => {
 };
 
 /**
+ * Get payment data for existing order (for retry)
+ */
+exports.getPaymentData = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const where = {
+            userId: req.user.id,
+            isDeleted: false,
+            paymentStatus: { [Op.not]: 'paid' }
+        };
+
+        if (isNaN(id)) {
+            where.orderNumber = id;
+        } else {
+            where.id = id;
+        }
+
+        const order = await Order.findOne({ where });
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found or already paid'
+            });
+        }
+
+        const user = await User.findByPk(req.user.id);
+        const payhereData = PayHereService.prepareCheckoutData(order, user);
+
+        res.json({
+            success: true,
+            data: payhereData
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
  * Create order from cart
  */
 exports.createOrder = async (req, res, next) => {
@@ -382,6 +421,8 @@ exports.createOrder = async (req, res, next) => {
             });
             if (user) {
                 await NotificationService.sendOrderConfirmation(order, user);
+                // Alert admins
+                await NotificationService.sendNewOrderAlertToAdmins(order, user);
             }
 
             // Audit log

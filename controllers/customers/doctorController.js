@@ -8,8 +8,12 @@ const { AuditLogService, NotificationService } = require('../../services');
  */
 exports.getMyProfile = async (req, res, next) => {
     try {
+        const query = req.user.isDoctorAccount
+            ? { where: { id: req.user.id } }
+            : { where: { userId: req.user.id } };
+
         const doctor = await Doctor.findOne({
-            where: { userId: req.user.id },
+            ...query,
             include: [
                 {
                     model: User,
@@ -136,9 +140,11 @@ exports.updateProfile = async (req, res, next) => {
             });
         }
 
-        const doctor = await Doctor.findOne({
-            where: { userId: req.user.id }
-        });
+        const query = req.user.isDoctorAccount
+            ? { where: { id: req.user.id } }
+            : { where: { userId: req.user.id } };
+
+        const doctor = await Doctor.findOne(query);
 
         if (!doctor) {
             return res.status(404).json({
@@ -198,6 +204,9 @@ exports.getAllDoctors = async (req, res, next) => {
                 { licenseNumber: { [Op.like]: `%${search}%` } },
                 { hospitalClinic: { [Op.like]: `%${search}%` } },
                 { specialization: { [Op.like]: `%${search}%` } },
+                { firstName: { [Op.like]: `%${search}%` } },
+                { lastName: { [Op.like]: `%${search}%` } },
+                { phone: { [Op.like]: `%${search}%` } },
                 { '$user.firstName$': { [Op.like]: `%${search}%` } },
                 { '$user.lastName$': { [Op.like]: `%${search}%` } },
                 { '$user.phone$': { [Op.like]: `%${search}%` } }
@@ -335,19 +344,24 @@ exports.verifyDoctor = async (req, res, next) => {
         await transaction.commit();
 
         // Send notification to doctor
-        const user = await User.findByPk(doctor.userId);
-        if (status === 'approved') {
-            await NotificationService.sendEmail(
-                user,
-                'Doctor Verification Approved',
-                `Congratulations! Your doctor registration has been approved. You can now enjoy credit purchases up to Rs.${doctor.creditLimit}.`
-            );
-        } else {
-            await NotificationService.sendEmail(
-                user,
-                'Doctor Verification Update',
-                `Your doctor verification was not approved. Reason: ${notes || 'Not specified'}. Please contact support for more details.`
-            );
+        const target = doctor.userId ? await User.findByPk(doctor.userId) : doctor;
+        const msg = status === 'approved'
+            ? `Congratulations! Your doctor registration has been approved. You can now enjoy credit purchases up to Rs.${doctor.creditLimit}.`
+            : `Your doctor verification was not approved. Reason: ${notes || 'Not specified'}. Please contact support for more details.`;
+
+        try {
+            await NotificationService.send({
+                user: target,
+                emailTemplate: status === 'approved' ? 'doctor_approved' : 'doctor_rejected',
+                subject: status === 'approved' ? 'Doctor Verification Approved' : 'Doctor Verification Update',
+                placeholders: {
+                    user_name: target.firstName,
+                    message: msg,
+                    credit_limit: doctor.creditLimit
+                }
+            });
+        } catch (notifyError) {
+            console.error('Failed to notify doctor:', notifyError.message);
         }
 
         await AuditLogService.logStatusChange(
@@ -566,9 +580,11 @@ exports.deleteAddress = async (req, res, next) => {
  */
 exports.getCreditSummary = async (req, res, next) => {
     try {
-        const doctor = await Doctor.findOne({
-            where: { userId: req.user.id }
-        });
+        const query = req.user.isDoctorAccount
+            ? { where: { id: req.user.id } }
+            : { where: { userId: req.user.id } };
+
+        const doctor = await Doctor.findOne(query);
 
         if (!doctor || !doctor.isVerified) {
             return res.status(400).json({

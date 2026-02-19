@@ -28,317 +28,224 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Swagger configuration
-const swaggerOptions = {
-    definition: {
-        openapi: '3.0.0',
-        info: {
-            title: 'E-Commerce Medicine API',
-            version: '1.0.0',
-            description: 'B2B E-Commerce API for selling medicines in bulk to doctors. Features include role-based access control, audit logging, tax management, promotions, and notifications.',
-            contact: {
-                name: 'API Support',
-                email: 'support@example.com'
-            }
-        },
-        servers: [
-            {
-                url: `http://localhost:${process.env.PORT || 3000}/api`,
-                description: 'Development server',
+let swaggerSpec;
+try {
+    // Attempt to load auto-generated swagger file
+    swaggerSpec = require('./swagger-output.json');
+    console.log('✅ Loaded auto-generated Swagger documentation.');
+} catch (error) {
+    // Fallback to swagger-jsdoc if output file doesn't exist
+    const swaggerOptions = {
+        definition: {
+            openapi: '3.0.0',
+            info: {
+                title: 'E-Commerce Medicine API',
+                version: '2.0.0',
+                description: 'A comprehensive B2B RESTful API for Bulk Medicine Sales. Features include Role-Based Access Control (RBAC), multi-tier audit logging, dynamic tax management, promotional engine, and integrated customer/doctor credit systems.',
+                contact: {
+                    name: 'API Support',
+                    email: 'support@example.com'
+                },
+                license: {
+                    name: 'MIT',
+                    url: 'https://opensource.org/licenses/MIT'
+                }
             },
-        ],
-        tags: [
-            { name: 'Auth', description: 'Authentication endpoints' },
-            { name: 'Users', description: 'User management' },
-            { name: 'Products', description: 'Product management' },
-            { name: 'Categories', description: 'Category management' },
-            { name: 'Cart', description: 'Shopping cart operations' },
-            { name: 'Orders', description: 'Order management' },
-            { name: 'Doctors', description: 'Doctor registration and management' },
-            { name: 'Taxes', description: 'Tax configuration' },
-            { name: 'Discounts', description: 'Discount and coupon management' },
-            { name: 'Promotions', description: 'Promotional campaigns' },
-            { name: 'Payments', description: 'Payment processing' },
-            { name: 'Settings', description: 'System settings' },
-            { name: 'Audit Logs', description: 'Audit trail and activity logs' }
-        ],
-        components: {
-            securitySchemes: {
-                bearerAuth: {
-                    type: 'http',
-                    scheme: 'bearer',
-                    bearerFormat: 'JWT',
-                    description: 'Enter JWT token obtained from login'
-                },
-            },
-            schemas: {
-                Error: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean', example: false },
-                        message: { type: 'string' },
-                        errors: { type: 'array', items: { type: 'object' } }
-                    }
-                },
-                Pagination: {
-                    type: 'object',
-                    properties: {
-                        currentPage: { type: 'integer' },
-                        totalPages: { type: 'integer' },
-                        totalItems: { type: 'integer' },
-                        itemsPerPage: { type: 'integer' },
-                        hasNextPage: { type: 'boolean' },
-                        hasPrevPage: { type: 'boolean' }
-                    }
-                },
-                Product: {
-                    type: 'object',
-                    properties: {
-                        id: { type: 'integer' },
-                        name: { type: 'string' },
-                        sku: { type: 'string' },
-                        description: { type: 'string' },
-                        shortDescription: { type: 'string' },
-                        price: { type: 'number' },
-                        costPrice: { type: 'number' },
-                        quantity: { type: 'integer' },
-                        minOrderQuantity: { type: 'integer' },
-                        maxOrderQuantity: { type: 'integer' },
-                        taxEnabled: { type: 'boolean' },
-                        taxPercentage: { type: 'number' },
-                        manufacturer: { type: 'string' },
-                        requiresPrescription: { type: 'boolean' },
-                        isActive: { type: 'boolean' }
-                    }
-                },
-                Category: {
-                    type: 'object',
-                    properties: {
-                        id: { type: 'integer' },
-                        name: { type: 'string' },
-                        slug: { type: 'string' },
-                        description: { type: 'string' },
-                        parentId: { type: 'integer', nullable: true },
-                        isActive: { type: 'boolean' }
-                    }
-                },
-                Order: {
-                    type: 'object',
-                    properties: {
-                        id: { type: 'integer' },
-                        orderNumber: { type: 'string' },
-                        status: { type: 'string', enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'] },
-                        subtotal: { type: 'number' },
-                        taxAmount: { type: 'number' },
-                        discountAmount: { type: 'number' },
-                        shippingAmount: { type: 'number' },
-                        totalAmount: { type: 'number' },
-                        paymentStatus: { type: 'string', enum: ['pending', 'partial', 'paid', 'refunded'] }
-                    }
-                },
-                CartItem: {
-                    type: 'object',
-                    properties: {
-                        id: { type: 'integer' },
-                        productId: { type: 'integer' },
-                        quantity: { type: 'integer' },
-                        unitPrice: { type: 'number' },
-                        taxAmount: { type: 'number' },
-                        totalPrice: { type: 'number' }
-                    }
-                },
-                Doctor: {
-                    type: 'object',
-                    properties: {
-                        id: { type: 'integer' },
-                        licenseNumber: { type: 'string' },
-                        specialization: { type: 'string' },
-                        clinicName: { type: 'string' },
-                        clinicAddress: { type: 'string' },
-                        isVerified: { type: 'boolean' },
-                        creditLimit: { type: 'number' },
-                        currentCredit: { type: 'number' }
-                    }
-                },
-                Tax: {
-                    type: 'object',
-                    properties: {
-                        id: { type: 'integer' },
-                        name: { type: 'string' },
-                        percentage: { type: 'number' },
-                        description: { type: 'string' },
-                        isActive: { type: 'boolean' }
-                    }
-                },
-                Discount: {
-                    type: 'object',
-                    properties: {
-                        id: { type: 'integer' },
-                        code: { type: 'string' },
-                        name: { type: 'string' },
-                        type: { type: 'string', enum: ['percentage', 'fixed'] },
-                        value: { type: 'number' },
-                        minOrderAmount: { type: 'number' },
-                        maxDiscountAmount: { type: 'number' },
-                        usageLimit: { type: 'integer' },
-                        usedCount: { type: 'integer' },
-                        startDate: { type: 'string', format: 'date-time' },
-                        endDate: { type: 'string', format: 'date-time' },
-                        isActive: { type: 'boolean' }
-                    }
-                },
-                Promotion: {
-                    type: 'object',
-                    properties: {
-                        id: { type: 'integer' },
-                        name: { type: 'string' },
-                        type: { type: 'string', enum: ['buy_x_get_y', 'bundle', 'flash_sale', 'bulk_discount'] },
-                        discountType: { type: 'string', enum: ['percentage', 'fixed'] },
-                        discountValue: { type: 'number' },
-                        startDate: { type: 'string', format: 'date-time' },
-                        endDate: { type: 'string', format: 'date-time' },
-                        isActive: { type: 'boolean' }
-                    }
-                },
-                Payment: {
-                    type: 'object',
-                    properties: {
-                        id: { type: 'integer' },
-                        orderId: { type: 'integer' },
-                        amount: { type: 'number' },
-                        method: { type: 'string', enum: ['cash', 'card', 'upi', 'bank_transfer', 'credit'] },
-                        status: { type: 'string', enum: ['pending', 'completed', 'failed', 'refunded'] },
-                        transactionId: { type: 'string' }
-                    }
-                },
-                Setting: {
-                    type: 'object',
-                    properties: {
-                        key: { type: 'string' },
-                        value: { type: 'string' },
-                        type: { type: 'string', enum: ['string', 'number', 'boolean', 'json'] },
-                        category: { type: 'string' },
-                        isPublic: { type: 'boolean' }
-                    }
-                },
-                AuditLog: {
-                    type: 'object',
-                    properties: {
-                        id: { type: 'integer' },
-                        userId: { type: 'integer' },
-                        userName: { type: 'string' },
-                        action: { type: 'string' },
-                        module: { type: 'string' },
-                        entityType: { type: 'string' },
-                        entityId: { type: 'integer' },
-                        description: { type: 'string' },
-                        oldValues: { type: 'object' },
-                        newValues: { type: 'object' },
-                        ipAddress: { type: 'string' },
-                        createdAt: { type: 'string', format: 'date-time' }
+            servers: [{ url: `http://localhost:${process.env.PORT || 3000}/api`, description: 'Development server' }],
+            tags: [
+                { name: 'Auth', description: 'Authentication and identity management' },
+                { name: 'Users', description: 'User account and profile administration' },
+                { name: 'Doctors', description: 'Specialized healthcare provider management and verification' },
+                { name: 'Products', description: 'Medical catalog and inventory tracking' },
+                { name: 'Categories', description: 'Classification and hierarchy of medical products' },
+                { name: 'Cart', description: 'Real-time shopping cart and checkout preparation' },
+                { name: 'Orders', description: 'Order lifecycle and fulfillment tracking' },
+                { name: 'Payments', description: 'Financial transaction and invoice management' },
+                { name: 'Taxes', description: 'Regional and category-based tax configuration' },
+                { name: 'Discounts', description: 'Coupon and bulk discount logic' },
+                { name: 'Promotions', description: 'Campaign and promotional offer management' },
+                { name: 'Settings', description: 'Global system configuration and features' },
+                { name: 'Audit Logs', description: 'System-wide activity and security audit trail' },
+                { name: 'Health', description: 'System accessibility and performance monitoring' }
+            ],
+            components: {
+                securitySchemes: {
+                    bearerAuth: {
+                        type: 'http',
+                        scheme: 'bearer',
+                        bearerFormat: 'JWT',
+                        description: 'Enter your JWT token obtained from the Auth login endpoint'
                     }
                 }
             }
         },
-        security: [{ bearerAuth: [] }]
-    },
-    apis: ['./routes/**/*.js', './server.js'],
-};
-
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
+        apis: ['./routes/**/*.js', './server.js'],
+    };
+    swaggerSpec = swaggerJsdoc(swaggerOptions);
+    console.log('ℹ️ Using JSDoc for Swagger documentation.');
+}
 
 // Swagger Documentation
 const swaggerStyles = `
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+    
     .swagger-ui {
         background-color: #0f172a;
         color: #e2e8f0;
-    }
-    .swagger-ui .info .title {
-        color: #38bdf8;
         font-family: 'Outfit', sans-serif;
     }
-    .swagger-ui .info li, .swagger-ui .info p, .swagger-ui .info table {
-        color: #94a3b8;
+    
+    .swagger-ui .info {
+        margin: 50px 0;
+        padding: 40px;
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.7) 100%);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
-    .swagger-ui .scheme-container {
-        background-color: #1e293b;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        padding: 20px 0;
-    }
-    .swagger-ui .opblock.opblock-post {
-        background: rgba(16, 185, 129, 0.1);
-        border-color: #10b981;
-    }
-    .swagger-ui .opblock.opblock-get {
-        background: rgba(59, 130, 246, 0.1);
-        border-color: #3b82f6;
-    }
-    .swagger-ui .opblock.opblock-put {
-        background: rgba(245, 158, 11, 0.1);
-        border-color: #f59e0b;
-    }
-    .swagger-ui .opblock.opblock-delete {
-        background: rgba(239, 68, 68, 0.1);
-        border-color: #ef4444;
-    }
-    .swagger-ui .opblock.opblock-patch {
-        background: rgba(139, 92, 246, 0.1);
-        border-color: #8b5cf6;
-    }
-    .swagger-ui .opblock .opblock-summary-method {
-        border-radius: 6px;
-        text-shadow: none;
-    }
-    .swagger-ui .topbar { 
-        display: none; 
-    }
-    .swagger-ui .btn.authorize {
-        border-color: #38bdf8;
+    
+    .swagger-ui .info .title {
         color: #38bdf8;
+        font-size: 2.5em;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        text-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
+    }
+    
+    .swagger-ui .info p, .swagger-ui .info li, .swagger-ui .info table {
+        color: #94a3b8;
+        font-size: 1.1em;
+        line-height: 1.6;
+    }
+    
+    .swagger-ui .scheme-container {
+        background: rgba(30, 41, 59, 0.8);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 30px 0;
+        margin-bottom: 30px;
+    }
+    
+    .swagger-ui .opblock {
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        margin-bottom: 15px;
+    }
+    
+    .swagger-ui .opblock:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+    }
+    
+    .swagger-ui .opblock.opblock-post { background: rgba(16, 185, 129, 0.08); border-color: #10b981; }
+    .swagger-ui .opblock.opblock-get { background: rgba(59, 130, 246, 0.08); border-color: #3b82f6; }
+    .swagger-ui .opblock.opblock-put { background: rgba(245, 158, 11, 0.08); border-color: #f59e0b; }
+    .swagger-ui .opblock.opblock-delete { background: rgba(239, 68, 68, 0.08); border-color: #ef4444; }
+    .swagger-ui .opblock.opblock-patch { background: rgba(139, 92, 246, 0.08); border-color: #8b5cf6; }
+    
+    .swagger-ui .opblock .opblock-summary-method {
+        border-radius: 8px;
+        font-weight: 600;
+        text-transform: uppercase;
+        padding: 8px 16px;
+    }
+    
+    .swagger-ui .btn.authorize {
+        border: 2px solid #38bdf8;
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.1);
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .swagger-ui .btn.authorize:hover {
+        background: #38bdf8;
+        color: #0f172a;
+    }
+    
+    .swagger-ui .topbar { display: none; }
+    
+    .swagger-ui section.models {
+        background: rgba(30, 41, 59, 0.5);
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin: 40px 20px;
+    }
+    
+    .swagger-ui section.models h4 {
+        color: #38bdf8;
+        font-weight: 600;
+    }
+    
+    .swagger-ui .model-container {
         background: transparent;
     }
-    .swagger-ui .btn.authorize svg {
-        fill: #38bdf8;
-    }
-    .swagger-ui section.models {
-        border: 1px solid #334155;
-        border-radius: 8px;
-        margin: 20px;
-    }
-    .swagger-ui section.models.is-open h4 {
-        border-bottom: 1px solid #334155;
-    }
-    .swagger-ui .model-container {
-        background: #1e293b;
-        margin: 0;
-    }
+    
     .swagger-ui .model-box {
-        background: #1e293b;
+        background: rgba(15, 23, 42, 0.5);
+        border-radius: 10px;
+        padding: 15px;
     }
-    .swagger-ui .opblock-description-wrapper p, 
-    .swagger-ui .opblock-external-docs-wrapper p, 
-    .swagger-ui .opblock-title_normal p {
-        color: #94a3b8;
-    }
-    .swagger-ui .response-col_status,
-    .swagger-ui .response-col_links {
+    
+    .swagger-ui table thead tr th {
         color: #e2e8f0;
+        border-bottom: 2px solid #38bdf8;
     }
-    .swagger-ui body {
-        margin: 0;
-        background: #0f172a;
+    
+    .swagger-ui .parameter__name, .swagger-ui .parameter__type {
+        color: #38bdf8;
     }
-    ::-webkit-scrollbar {
-        width: 10px;
+    
+    .swagger-ui .parameter__in {
+        color: #94a3b8;
+        font-style: italic;
     }
-    ::-webkit-scrollbar-track {
-        background: #0f172a;
+    
+    .swagger-ui .opblock-tag-section {
+        background: rgba(30, 41, 59, 0.3);
+        border-radius: 15px;
+        padding: 10px;
+        margin-bottom: 20px;
     }
+
+    .swagger-ui .opblock-tag {
+        font-family: 'Outfit', sans-serif;
+        color: #f8fafc !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+        padding: 15px 20px !important;
+        transition: all 0.3s;
+        cursor: pointer !important;
+    }
+
+    .swagger-ui .opblock-tag:hover {
+        background: rgba(56, 189, 248, 0.1) !important;
+    }
+
+    .swagger-ui .opblock-tag small {
+        color: #94a3b8 !important;
+        font-weight: 300;
+    }
+
+    .swagger-ui .opblock-summary-path {
+        color: #e2e8f0 !important;
+        font-weight: 500 !important;
+    }
+
+    .swagger-ui .opblock-summary-description {
+        color: #94a3b8 !important;
+    }
+    
+    ::-webkit-scrollbar { width: 12px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
     ::-webkit-scrollbar-thumb {
-        background: #334155;
-        border-radius: 5px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: #475569;
+        background: linear-gradient(#38bdf8, #8b5cf6);
+        border-radius: 10px;
+        border: 3px solid #0f172a;
     }
 `;
 
@@ -347,7 +254,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
     customSiteTitle: 'E-Commerce Medicine API Documentation',
     swaggerOptions: {
         persistAuthorization: true,
-        docExpansion: 'none',
+        docExpansion: 'list',
         filter: true,
         tagsSorter: 'alpha',
         operationsSorter: 'alpha',
@@ -451,7 +358,10 @@ const startServer = async () => {
             // Manually add columns to users table
             const userColumns = [
                 { name: 'is_verified', type: 'BOOLEAN DEFAULT FALSE', after: 'is_deleted' },
-                { name: 'verification_token', type: 'VARCHAR(255)', after: 'is_verified' }
+                { name: 'verification_token', type: 'VARCHAR(255)', after: 'is_verified' },
+                { name: 'two_factor_enabled', type: 'BOOLEAN DEFAULT FALSE', after: 'verification_token' },
+                { name: 'two_factor_code', type: 'VARCHAR(255)', after: 'two_factor_enabled' },
+                { name: 'two_factor_expires_at', type: 'DATETIME', after: 'two_factor_code' }
             ];
             for (const col of userColumns) {
                 try {
@@ -479,6 +389,15 @@ const startServer = async () => {
                 { name: 'max_order_quantity', type: 'INTEGER', after: 'is_active' },
                 { name: 'is_max_order_restricted', type: 'BOOLEAN DEFAULT FALSE', after: 'max_order_quantity' }
             ];
+            try {
+                await sequelize.query(`ALTER TABLE products ADD COLUMN brand VARCHAR(255) AFTER generic_name;`);
+                console.log('✅ Manually added brand to products table.');
+            } catch (err) {
+                if (!err.message.includes('Duplicate column name')) {
+                    console.warn('⚠️ Could not add brand to products:', err.message);
+                }
+            }
+
             for (const col of productExtraColumns) {
                 try {
                     await sequelize.query(`ALTER TABLE products ADD COLUMN ${col.name} ${col.type} AFTER ${col.after};`);
@@ -490,7 +409,78 @@ const startServer = async () => {
                 }
             }
 
+            // Manually add filter columns to discounts and promotions
+            const filterColumns = [
+                { name: 'agency_ids', type: 'JSON' },
+                { name: 'manufacturers', type: 'JSON' },
+                { name: 'batch_ids', type: 'JSON' }
+            ];
+            const filterTables = ['discounts', 'promotions'];
+
+            for (const table of filterTables) {
+                for (const col of filterColumns) {
+                    try {
+                        await sequelize.query(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.type} DEFAULT NULL;`);
+                        console.log(`✅ Manually added ${col.name} to ${table} table.`);
+                    } catch (err) {
+                        if (!err.message.includes('Duplicate column name')) {
+                            console.warn(`⚠️ Could not add ${col.name} to ${table}:`, err.message);
+                        }
+                    }
+                }
+            }
+
             console.log('✅ Database models synchronized.');
+
+            // Manually add brand_id to products and migrate data
+            try {
+                const [results] = await sequelize.query("SHOW COLUMNS FROM products LIKE 'brand_id'");
+                if (results.length === 0) {
+                    await sequelize.query("ALTER TABLE products ADD COLUMN brand_id INTEGER DEFAULT NULL AFTER brand;");
+                    console.log('✅ Manually added brand_id to products table.');
+
+                    // Migrate brands
+                    const [products] = await sequelize.query("SELECT id, brand FROM products WHERE brand IS NOT NULL AND brand != ''");
+                    if (products.length > 0) {
+                        const uniqueBrands = [...new Set(products.map(p => p.brand))];
+                        console.log(`Found ${uniqueBrands.length} unique brands to migrate.`);
+
+                        for (const brandName of uniqueBrands) {
+                            if (!brandName) continue;
+                            const slug = brandName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+                            let brandId;
+                            const [existing] = await sequelize.query("SELECT id FROM brands WHERE name = ?", { replacements: [brandName] });
+
+                            if (existing.length > 0) {
+                                brandId = existing[0].id;
+                            } else {
+                                const [res] = await sequelize.query(
+                                    "INSERT INTO brands (name, slug, created_at, updated_at) VALUES (?, ?, NOW(), NOW())",
+                                    { replacements: [brandName, slug + '-' + Date.now()] }
+                                );
+                                brandId = res;
+                            }
+
+                            await sequelize.query("UPDATE products SET brand_id = ? WHERE brand = ?", { replacements: [brandId, brandName] });
+                        }
+                        console.log('✅ Migrated brands to new table.');
+                    }
+                }
+            } catch (err) {
+                console.warn('⚠️ Brand migration warning:', err.message);
+            }
+
+            // Manually add brand_ids to promotions if missing
+            try {
+                const [results] = await sequelize.query("SHOW COLUMNS FROM promotions LIKE 'brand_ids'");
+                if (results.length === 0) {
+                    await sequelize.query("ALTER TABLE promotions ADD COLUMN brand_ids JSON DEFAULT NULL AFTER agency_ids;");
+                    console.log('✅ Manually added brand_ids to promotions table.');
+                }
+            } catch (err) {
+                console.warn('⚠️ Promotions update warning:', err.message);
+            }
 
             // Seed default roles first
             await seedDefaultRoles();

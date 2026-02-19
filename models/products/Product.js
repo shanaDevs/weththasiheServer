@@ -48,11 +48,16 @@ module.exports = (sequelize) => {
             field: 'generic_name',
             comment: 'Generic medicine name'
         },
-        manufacturer: {
+        brand: {
             type: DataTypes.STRING(255),
             allowNull: true,
-            comment: 'Manufacturer/Brand name'
+            comment: 'Brand name'
         },
+        // manufacturer: {
+        //     type: DataTypes.STRING(255),
+        //     allowNull: true,
+        //     comment: 'Manufacturer/Brand name'
+        // },
         dosageForm: {
             type: DataTypes.STRING(100),
             allowNull: true,
@@ -91,17 +96,52 @@ module.exports = (sequelize) => {
             field: 'cost_price',
             comment: 'Purchase/cost price'
         },
+        retailPrice: {
+            type: DataTypes.DECIMAL(12, 2),
+            allowNull: false,
+            defaultValue: 0,
+            field: 'retail_price',
+            comment: 'Retail selling price'
+        },
+        wholesalePrice: {
+            type: DataTypes.DECIMAL(12, 2),
+            allowNull: false,
+            defaultValue: 0,
+            field: 'wholesale_price',
+            comment: 'Wholesale selling price'
+        },
+        distributorPrice: {
+            type: DataTypes.DECIMAL(12, 2),
+            allowNull: false,
+            defaultValue: 0,
+            field: 'distributor_price',
+            comment: 'Distributor selling price'
+        },
         sellingPrice: {
             type: DataTypes.DECIMAL(12, 2),
             allowNull: false,
             defaultValue: 0,
             field: 'selling_price',
-            comment: 'Regular selling price'
+            comment: 'Regular/Default selling price'
         },
         mrp: {
             type: DataTypes.DECIMAL(12, 2),
             allowNull: true,
             comment: 'Maximum Retail Price'
+        },
+
+        // Agency/Manufacturer
+        agencyId: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            field: 'agency_id',
+            comment: 'Reference to Agency (e.g. SPMC, SPC)'
+        },
+        brandId: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            field: 'brand_id',
+            comment: 'Reference to Brand'
         },
 
         // Bulk Pricing

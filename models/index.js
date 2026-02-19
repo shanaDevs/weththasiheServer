@@ -14,6 +14,8 @@ const Category = require('./products/Category')(sequelize, Sequelize);
 const Product = require('./products/Product')(sequelize, Sequelize);
 const ProductBulkPrice = require('./products/ProductBulkPrice')(sequelize, Sequelize);
 const ProductBatch = require('./products/ProductBatch')(sequelize, Sequelize);
+const Agency = require('./products/Agency')(sequelize, Sequelize);
+const Brand = require('./products/Brand')(sequelize, Sequelize);
 
 // ==================== PRICING ====================
 const Tax = require('./pricing/Tax')(sequelize, Sequelize);
@@ -36,6 +38,8 @@ const OrderRequest = require('./orders/OrderRequest')(sequelize, Sequelize);
 const Inventory = require('./inventory/Inventory')(sequelize, Sequelize);
 const InventoryMovement = require('./inventory/InventoryMovement')(sequelize, Sequelize);
 const Supplier = require('./inventory/Supplier')(sequelize, Sequelize);
+const PurchaseOrder = require('./inventory/PurchaseOrder')(sequelize, Sequelize);
+const PurchaseOrderItem = require('./inventory/PurchaseOrderItem')(sequelize, Sequelize);
 
 // ==================== PAYMENTS ====================
 const Payment = require('./payments/Payment')(sequelize, Sequelize);
@@ -85,6 +89,22 @@ ProductBulkPrice.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 
 Product.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 Product.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
+
+// ----- Agency -----
+// Note: No FK constraint on agency_id — products table is at MySQL's 64-key limit.
+// The association is managed at the application level via Sequelize.
+Agency.hasMany(Product, { foreignKey: 'agencyId', as: 'products', constraints: false });
+Product.belongsTo(Agency, { foreignKey: 'agencyId', as: 'agency', constraints: false });
+
+Agency.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+Agency.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
+
+// ----- Brand -----
+Brand.hasMany(Product, { foreignKey: 'brandId', as: 'products' });
+Product.belongsTo(Brand, { foreignKey: 'brandId', as: 'brandEntity' });
+
+Brand.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+Brand.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
 
 // ----- Product & Batch -----
 Product.hasMany(ProductBatch, { foreignKey: 'productId', as: 'batches' });
@@ -174,6 +194,19 @@ Inventory.hasMany(InventoryMovement, { foreignKey: 'inventoryId', as: 'movements
 
 InventoryMovement.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 
+// ----- Purchase Order -----
+PurchaseOrder.belongsTo(Supplier, { foreignKey: 'supplierId', as: 'supplier' });
+Supplier.hasMany(PurchaseOrder, { foreignKey: 'supplierId', as: 'purchaseOrders' });
+
+PurchaseOrder.hasMany(PurchaseOrderItem, { foreignKey: 'purchaseOrderId', as: 'items' });
+PurchaseOrderItem.belongsTo(PurchaseOrder, { foreignKey: 'purchaseOrderId', as: 'purchaseOrder' });
+
+PurchaseOrderItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+Product.hasMany(PurchaseOrderItem, { foreignKey: 'productId', as: 'purchaseOrderItems' });
+
+PurchaseOrder.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+PurchaseOrder.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
+
 // ----- Payment -----
 Payment.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
 Order.hasMany(Payment, { foreignKey: 'orderId', as: 'payments' });
@@ -222,6 +255,8 @@ module.exports = {
     Product,
     ProductBulkPrice,
     ProductBatch,
+    Agency,
+    Brand,
     // Pricing
     Tax,
     Discount,
@@ -240,6 +275,8 @@ module.exports = {
     Inventory,
     InventoryMovement,
     Supplier,
+    PurchaseOrder,
+    PurchaseOrderItem,
     // Payments
     Payment,
     // Settings

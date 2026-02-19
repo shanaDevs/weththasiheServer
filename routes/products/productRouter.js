@@ -13,23 +13,9 @@ const { productValidators, queryValidators } = require('../../validators');
  *     tags: [Products]
  *     security: []
  *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *         description: Items per page
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search by name, SKU, or description
+ *       - $ref: '#/components/parameters/PageParam'
+ *       - $ref: '#/components/parameters/LimitParam'
+ *       - $ref: '#/components/parameters/SearchParam'
  *       - in: query
  *         name: categoryId
  *         schema:
@@ -51,16 +37,7 @@ const { productValidators, queryValidators } = require('../../validators');
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Product'
- *                 pagination:
- *                   $ref: '#/components/schemas/Pagination'
+ *               $ref: '#/components/schemas/PaginatedResponse'
  */
 router.get('/', authenticateToken, queryValidators.pagination, productController.getProducts);
 
@@ -170,6 +147,9 @@ router.get('/expiring',
     requirePermission('products', 'read'),
     productController.getExpiringProducts
 );
+
+// Get manufacturers (brands)
+router.get('/manufacturers', authenticateToken, productController.getManufacturers);
 
 /**
  * @swagger
@@ -516,6 +496,8 @@ router.post('/:productId/batches', authenticateToken, requirePermission('manage_
  *       200: { description: List of batches }
  */
 router.get('/:productId/batches', authenticateToken, inventoryController.getProductBatches);
+router.put('/batches/:id', authenticateToken, requirePermission('manage_inventory'), inventoryController.updateProductBatch);
+router.delete('/batches/:id', authenticateToken, requirePermission('manage_inventory'), inventoryController.deleteProductBatch);
 
 // ----- Order Requests (Order More) -----
 /**

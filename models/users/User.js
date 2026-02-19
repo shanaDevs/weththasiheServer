@@ -16,10 +16,7 @@ module.exports = (sequelize) => {
         },
         lastName: {
             type: DataTypes.STRING,
-            allowNull: false,
-            validate: {
-                notEmpty: true
-            }
+            allowNull: true
         },
         userName: {
             type: DataTypes.STRING,
@@ -49,6 +46,14 @@ module.exports = (sequelize) => {
                 notEmpty: true
             }
         },
+        email: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            unique: true,
+            validate: {
+                isEmail: true
+            }
+        },
         isDisabled: {
             type: DataTypes.BOOLEAN,
             defaultValue: false,
@@ -69,6 +74,21 @@ module.exports = (sequelize) => {
             type: DataTypes.STRING,
             allowNull: true,
             field: 'verification_token'
+        },
+        twoFactorEnabled: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            field: 'two_factor_enabled'
+        },
+        twoFactorCode: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            field: 'two_factor_code'
+        },
+        twoFactorExpiresAt: {
+            type: DataTypes.DATE,
+            allowNull: true,
+            field: 'two_factor_expires_at'
         }
     }, {
         tableName: 'users',

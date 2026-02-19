@@ -9,10 +9,40 @@ module.exports = (sequelize) => {
         },
         userId: {
             type: DataTypes.INTEGER,
-            allowNull: false,
+            allowNull: true,
             field: 'user_id',
             unique: true,
-            comment: 'Reference to users table'
+            comment: 'Reference to users table (optional for standalone legacy doctors)'
+        },
+        firstName: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            field: 'first_name'
+        },
+        lastName: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            field: 'last_name'
+        },
+        userName: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            unique: true,
+            field: 'user_name'
+        },
+        phone: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            unique: true
+        },
+        password: {
+            type: DataTypes.STRING,
+            allowNull: true
+        },
+        verificationToken: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            field: 'verification_token'
         },
         // Professional Info
         licenseNumber: {
@@ -189,6 +219,21 @@ module.exports = (sequelize) => {
             allowNull: true,
             field: 'internal_notes',
             comment: 'Internal notes (not visible to doctor)'
+        },
+        twoFactorEnabled: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            field: 'two_factor_enabled'
+        },
+        twoFactorCode: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            field: 'two_factor_code'
+        },
+        twoFactorExpiresAt: {
+            type: DataTypes.DATE,
+            allowNull: true,
+            field: 'two_factor_expires_at'
         }
     }, {
         tableName: 'doctors',

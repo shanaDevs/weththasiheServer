@@ -5,16 +5,36 @@ const { authenticateToken, requirePermission, optionalAuth } = require('../../mi
 const { promotionValidators, queryValidators } = require('../../validators');
 
 /**
- * @route   GET /api/promotions/active
- * @desc    Get active promotions (for shop)
- * @access  Public
+ * @swagger
+ * /promotions/active:
+ *   get:
+ *     summary: Get all active promotions
+ *     tags: [Promotions]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: List of active campaigns
  */
 router.get('/active', optionalAuth, promotionController.getActivePromotions);
 
 /**
- * @route   GET /api/promotions
- * @desc    Get all promotions
- * @access  Admin
+ * @swagger
+ * /promotions:
+ *   get:
+ *     summary: Get all promotions (Admin only)
+ *     tags: [Promotions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageParam'
+ *       - $ref: '#/components/parameters/LimitParam'
+ *     responses:
+ *       200:
+ *         description: List of promotions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PaginatedResponse'
  */
 router.get('/',
     authenticateToken,
@@ -24,9 +44,25 @@ router.get('/',
 );
 
 /**
- * @route   GET /api/promotions/:id
- * @desc    Get promotion by ID
- * @access  Admin
+ * @swagger
+ * /promotions/{id}:
+ *   get:
+ *     summary: Get promotion detail by ID (Admin only)
+ *     tags: [Promotions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Promotion details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Promotion'
  */
 router.get('/:id',
     authenticateToken,
@@ -35,9 +71,21 @@ router.get('/:id',
 );
 
 /**
- * @route   GET /api/promotions/:id/products
- * @desc    Get promotion products
- * @access  Public
+ * @swagger
+ * /promotions/{id}/products:
+ *   get:
+ *     summary: Get products associated with a promotion
+ *     tags: [Promotions]
+ *     security: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *       - $ref: '#/components/parameters/PageParam'
+ *     responses:
+ *       200:
+ *         description: List of products under this promotion
  */
 router.get('/:id/products',
     optionalAuth,
@@ -46,9 +94,22 @@ router.get('/:id/products',
 );
 
 /**
- * @route   POST /api/promotions
- * @desc    Create promotion
- * @access  Admin
+ * @swagger
+ * /promotions:
+ *   post:
+ *     summary: Create new promotional campaign (Admin only)
+ *     tags: [Promotions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Promotion'
+ *     responses:
+ *       201:
+ *         description: Promotion created
  */
 router.post('/',
     authenticateToken,
@@ -58,9 +119,27 @@ router.post('/',
 );
 
 /**
- * @route   PUT /api/promotions/:id
- * @desc    Update promotion
- * @access  Admin
+ * @swagger
+ * /promotions/{id}:
+ *   put:
+ *     summary: Update promotion (Admin only)
+ *     tags: [Promotions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Promotion'
+ *     responses:
+ *       200:
+ *         description: Promotion updated
  */
 router.put('/:id',
     authenticateToken,
@@ -70,9 +149,21 @@ router.put('/:id',
 );
 
 /**
- * @route   DELETE /api/promotions/:id
- * @desc    Delete promotion
- * @access  Admin
+ * @swagger
+ * /promotions/{id}:
+ *   delete:
+ *     summary: Delete promotion (Admin only)
+ *     tags: [Promotions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Promotion deleted
  */
 router.delete('/:id',
     authenticateToken,
