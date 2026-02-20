@@ -1,5 +1,6 @@
 const { OrderRequest, Product, User, Sequelize } = require('../../models');
 const { validationResult } = require('express-validator');
+const { NotificationService } = require('../../services');
 
 /**
  * Order Request Controller
@@ -27,6 +28,10 @@ exports.submitOrderRequest = async (req, res, next) => {
             note,
             status: 'pending'
         });
+
+        // Trigger admin notification
+        NotificationService.sendOrderMoreRequestAlertToAdmins(request, product, req.user)
+            .catch(err => console.error('Failed to send admin order-more alert:', err));
 
         res.status(201).json({
             success: true,
@@ -74,12 +79,57 @@ exports.getOrderRequests = async (req, res, next) => {
     }
 };
 
+exports.getMyOrderRequests = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { status, page = 1, limit = 10 } = req.query;
+        const offset = (page - 1) * limit;
+
+        const where = { userId };
+        if (status) where.status = status;
+
+        const { count, rows } = await OrderRequest.findAndCountAll({
+            where,
+            include: [
+                {
+                    model: Product,
+                    as: 'product',
+                    attributes: ['id', 'name', 'sku', 'thumbnail', 'slug']
+                }
+            ],
+            order: [['createdAt', 'DESC']],
+            limit: parseInt(limit),
+            offset: parseInt(offset)
+        });
+
+        res.json({
+            success: true,
+            data: {
+                requests: rows,
+                pagination: {
+                    total: count,
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    totalPages: Math.ceil(count / limit)
+                }
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 exports.processOrderRequest = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { status, releasedQuantity, adminNote } = req.body;
 
-        const request = await OrderRequest.findByPk(id);
+        const request = await OrderRequest.findByPk(id, {
+            include: [
+                { model: Product, as: 'product' },
+                { model: User, as: 'user' }
+            ]
+        });
         if (!request) {
             return res.status(404).json({ success: false, message: 'Request not found' });
         }
@@ -92,7 +142,9 @@ exports.processOrderRequest = async (req, res, next) => {
 
         await request.save();
 
-        // TODO: Trigger notification to user
+        // Trigger notification to user
+        NotificationService.sendOrderMoreRequestStatusUpdate(request, request.product, request.user)
+            .catch(err => console.error('Failed to send order-more status update:', err));
 
         res.json({
             success: true,

@@ -32,6 +32,7 @@ router.use('/settings', require('./settings/settingsRouter'));
 router.use('/audit-logs', require('./audit/auditRouter'));
 
 // Inventory
+router.use('/inventory', require('./inventory/inventoryRouter'));
 router.use('/suppliers', require('./inventory/supplierRouter'));
 router.use('/purchase-orders', require('./inventory/purchaseOrderRouter'));
 

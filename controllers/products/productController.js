@@ -19,7 +19,9 @@ exports.getProducts = async (req, res, next) => {
             maxPrice,
             sortBy = 'createdAt',
             sortOrder = 'DESC',
-            featured
+            featured,
+            brandId,
+            agencyId
         } = req.query;
 
         const where = {
@@ -45,6 +47,8 @@ exports.getProducts = async (req, res, next) => {
         if (categoryId) where.categoryId = categoryId;
         if (categorySlug) where['$category.slug$'] = categorySlug;
         if (manufacturer) where.manufacturer = manufacturer;
+        if (brandId) where.brandId = brandId;
+        if (agencyId) where.agencyId = agencyId;
         if (featured === 'true') where.isFeatured = true;
         if (minPrice) where.sellingPrice = { ...where.sellingPrice, [Op.gte]: parseFloat(minPrice) };
         if (maxPrice) where.sellingPrice = { ...where.sellingPrice, [Op.lte]: parseFloat(maxPrice) };
@@ -127,7 +131,9 @@ exports.getProductsAdmin = async (req, res, next) => {
             status,
             stockStatus,
             sortBy = 'createdAt',
-            sortOrder = 'DESC'
+            sortOrder = 'DESC',
+            brandId,
+            agencyId
         } = req.query;
 
         const where = { isDeleted: false };
@@ -146,6 +152,8 @@ exports.getProductsAdmin = async (req, res, next) => {
         if (categoryId) where.categoryId = categoryId;
         if (categorySlug) where['$category.slug$'] = categorySlug;
         if (status) where.status = status;
+        if (brandId) where.brandId = brandId;
+        if (agencyId) where.agencyId = agencyId;
 
         // Stock status filter
         if (stockStatus === 'out_of_stock') {
@@ -296,6 +304,8 @@ exports.createProduct = async (req, res, next) => {
             mrp,
             agencyId,
             minOrderQuantity,
+            maxOrderQuantity,
+            isMaxOrderRestricted,
             bulkPriceEnabled,
             bulkPrices,
             taxEnabled,
@@ -371,6 +381,8 @@ exports.createProduct = async (req, res, next) => {
             mrp,
             agencyId,
             minOrderQuantity: minOrderQuantity || 1,
+            maxOrderQuantity: maxOrderQuantity || 0,
+            isMaxOrderRestricted: isMaxOrderRestricted || false,
             bulkPriceEnabled: bulkPriceEnabled || false,
             taxEnabled: taxEnabled !== false,
             taxPercentage: taxPercentage || 0,
@@ -497,6 +509,7 @@ exports.updateProduct = async (req, res, next) => {
             'requiresPrescription', 'categoryId', 'costPrice',
             'retailPrice', 'wholesalePrice', 'distributorPrice',
             'sellingPrice', 'mrp', 'agencyId', 'minOrderQuantity',
+            'maxOrderQuantity', 'isMaxOrderRestricted',
             'bulkPriceEnabled', 'taxEnabled', 'taxPercentage', 'taxId',
             'stockQuantity', 'lowStockThreshold', 'trackInventory',
             'allowBackorder', 'images', 'thumbnail', 'status', 'isFeatured',

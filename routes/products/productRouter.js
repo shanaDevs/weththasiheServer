@@ -536,6 +536,7 @@ router.post('/order-more', authenticateToken, orderRequestController.submitOrder
  *       200: { description: List of requests }
  */
 router.get('/admin/order-requests', authenticateToken, requirePermission('manage_orders'), orderRequestController.getOrderRequests);
+router.get('/my-requests', authenticateToken, orderRequestController.getMyOrderRequests);
 
 /**
  * @swagger
