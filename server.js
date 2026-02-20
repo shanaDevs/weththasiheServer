@@ -16,14 +16,27 @@ const corsOptions = {
     origin: (origin, callback) => {
         // If origin is null (like mobile apps/curl), or process.env.CORS_ORIGIN is '*', allow it
         // Note: returning true reflects the request's origin back to Access-Control-Allow-Origin
-        if (!origin || process.env.CORS_ORIGIN === '*' || (process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.split(',').includes(origin))) {
+        const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['*'];
+
+        if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
+            console.error(`CORS Error: Origin ${origin} is not allowed by CORS_ORIGIN setting: ${process.env.CORS_ORIGIN}`);
             callback(new Error('Not allowed by CORS'));
         }
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'Accept',
+        'Origin',
+        'X-Api-Version',
+        'Cache-Control',
+        'Pragma',
+        'Expires'
+    ],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     credentials: true,
     maxAge: 86400 // 24 hours
@@ -31,8 +44,16 @@ const corsOptions = {
 
 
 // Middleware
+app.set('trust proxy', 1);
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // Enable pre-flight for all routes
+
+// Set Referrer-Policy to address the user's error message
+app.use((req, res, next) => {
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+});
+
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
