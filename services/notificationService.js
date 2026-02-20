@@ -417,6 +417,50 @@ class NotificationService {
     }
 
     /**
+     * Send alert to admins for new order more request
+     */
+    static async sendOrderMoreRequestAlertToAdmins(request, product, user) {
+        const placeholders = {
+            customer_name: `${user.firstName} ${user.lastName || ''}`.trim(),
+            product_name: product.name,
+            requested_quantity: request.requestedQuantity,
+            product_sku: product.sku,
+            view_request_url: `${process.env.ADMIN_FRONTEND_URL || 'http://localhost:3000/admin'}/order-requests`
+        };
+
+        return this.sendAdminAlert({
+            emailTemplate: 'admin_new_order_request_alert',
+            placeholders,
+            referenceType: 'order_request',
+            referenceId: request.id
+        });
+    }
+
+    /**
+     * Send order more request status update to user
+     */
+    static async sendOrderMoreRequestStatusUpdate(request, product, user) {
+        const placeholders = {
+            customer_name: user.firstName,
+            product_name: product.name,
+            status: this.formatStatus(request.status),
+            requested_quantity: request.requestedQuantity,
+            approved_quantity: request.releasedQuantity || 0,
+            admin_note: request.adminNote || 'No additional notes provided.',
+            shop_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/products/${product.slug}`
+        };
+
+        return this.send({
+            user,
+            emailTemplate: 'order_request_status_update',
+            smsTemplate: 'order_request_status_sms',
+            placeholders,
+            referenceType: 'order_request',
+            referenceId: request.id
+        });
+    }
+
+    /**
      * Format status for display
      */
     static formatStatus(status) {

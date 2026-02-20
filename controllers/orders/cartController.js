@@ -1,4 +1,4 @@
-const { Cart, CartItem, Product, ProductBulkPrice, Discount, Address, sequelize } = require('../../models');
+const { Cart, CartItem, Product, ProductBulkPrice, Discount, Address, OrderRequest, sequelize } = require('../../models');
 const { validationResult } = require('express-validator');
 const { PricingService, InventoryService, AuditLogService } = require('../../services');
 
@@ -19,7 +19,7 @@ exports.getCart = async (req, res, next) => {
                     include: [{
                         model: Product,
                         as: 'product',
-                        attributes: ['id', 'name', 'slug', 'thumbnail', 'stockQuantity', 'trackInventory', 'allowBackorder']
+                        attributes: ['id', 'name', 'slug', 'thumbnail', 'stockQuantity', 'trackInventory', 'allowBackorder', 'maxOrderQuantity', 'isMaxOrderRestricted']
                     }]
                 },
                 {
@@ -100,6 +100,9 @@ exports.addToCart = async (req, res, next) => {
             });
         }
 
+        // Check Max Order Quantity
+        let effectiveMaxLimit = product.isMaxOrderRestricted ? product.maxOrderQuantity : null;
+
         // Get or create cart
         let cart = await Cart.findOne({
             where: { userId: req.user.id, status: 'active' },
@@ -120,8 +123,33 @@ exports.addToCart = async (req, res, next) => {
             transaction
         });
 
-        // Calculate pricing
         const totalQuantity = cartItem ? cartItem.quantity + quantity : quantity;
+
+        if (effectiveMaxLimit && totalQuantity > effectiveMaxLimit) {
+            // Check for approved order request
+            const orderRequest = await OrderRequest.findOne({
+                where: {
+                    userId: req.user.id,
+                    productId,
+                    status: ['approved', 'partially_approved']
+                },
+                order: [['createdAt', 'DESC']],
+                transaction
+            });
+
+            if (!orderRequest || orderRequest.releasedQuantity < totalQuantity) {
+                await transaction.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: `This product has a maximum order limit of ${effectiveMaxLimit} units. ${orderRequest
+                        ? `Your approved request only allows up to ${orderRequest.releasedQuantity} units.`
+                        : 'Please submit an order request for larger quantities.'
+                        }`
+                });
+            }
+        }
+
+        // Calculate pricing
         const pricing = await PricingService.calculateCartItemTotals(product, totalQuantity);
 
         if (cartItem) {
@@ -226,6 +254,33 @@ exports.updateCartItem = async (req, res, next) => {
 
             // Recalculate pricing
             const product = await Product.findByPk(cartItem.productId);
+
+            // Check Max Order Quantity
+            const effectiveMaxLimit = product.isMaxOrderRestricted ? product.maxOrderQuantity : null;
+            if (effectiveMaxLimit && quantity > effectiveMaxLimit) {
+                // Check for approved order request
+                const orderRequest = await OrderRequest.findOne({
+                    where: {
+                        userId: req.user.id,
+                        productId: product.id,
+                        status: ['approved', 'partially_approved']
+                    },
+                    order: [['createdAt', 'DESC']],
+                    transaction
+                });
+
+                if (!orderRequest || orderRequest.releasedQuantity < quantity) {
+                    await transaction.rollback();
+                    return res.status(400).json({
+                        success: false,
+                        message: `This product has a maximum order limit of ${effectiveMaxLimit} units. ${orderRequest
+                            ? `Your approved request only allows up to ${orderRequest.releasedQuantity} units.`
+                            : 'Please submit an order request for larger quantities.'
+                            }`
+                    });
+                }
+            }
+
             const pricing = await PricingService.calculateCartItemTotals(product, quantity);
 
             cartItem.quantity = quantity;
@@ -567,7 +622,7 @@ exports.fetchCart = async function (cartId) {
                 include: [{
                     model: Product,
                     as: 'product',
-                    attributes: ['id', 'name', 'slug', 'thumbnail', 'stockQuantity', 'trackInventory', 'allowBackorder']
+                    attributes: ['id', 'name', 'slug', 'thumbnail', 'stockQuantity', 'trackInventory', 'allowBackorder', 'maxOrderQuantity', 'isMaxOrderRestricted']
                 }]
             },
             {

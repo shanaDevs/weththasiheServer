@@ -14,8 +14,11 @@ const poValidation = [
 ];
 
 router.get('/', authenticateToken, requirePermission('inventory', 'read'), purchaseOrderController.getPurchaseOrders);
+router.get('/:id/pdf', authenticateToken, requirePermission('inventory', 'read'), purchaseOrderController.downloadPdf);
 router.get('/:id', authenticateToken, requirePermission('inventory', 'read'), purchaseOrderController.getPurchaseOrder);
 router.post('/', authenticateToken, requirePermission('inventory', 'create'), poValidation, purchaseOrderController.createPurchaseOrder);
+router.post('/:id/send', authenticateToken, requirePermission('inventory', 'update'), purchaseOrderController.sendPurchaseOrder);
 router.patch('/:id/status', authenticateToken, requirePermission('inventory', 'update'), purchaseOrderController.updateStatus);
+router.post('/:id/receive', authenticateToken, requirePermission('inventory', 'update'), purchaseOrderController.receiveItems);
 
 module.exports = router;
