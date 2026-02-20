@@ -243,7 +243,7 @@ const swaggerStyles = `
         padding: 10px;
         margin-bottom: 20px;
     }
-
+ 
     .swagger-ui .opblock-tag {
         font-family: 'Outfit', sans-serif;
         color: #f8fafc !important;
@@ -252,21 +252,21 @@ const swaggerStyles = `
         transition: all 0.3s;
         cursor: pointer !important;
     }
-
+ 
     .swagger-ui .opblock-tag:hover {
         background: rgba(56, 189, 248, 0.1) !important;
     }
-
+ 
     .swagger-ui .opblock-tag small {
         color: #94a3b8 !important;
         font-weight: 300;
     }
-
+ 
     .swagger-ui .opblock-summary-path {
         color: #e2e8f0 !important;
         font-weight: 500 !important;
     }
-
+ 
     .swagger-ui .opblock-summary-description {
         color: #94a3b8 !important;
     }
@@ -320,10 +320,22 @@ app.use('/api', require('./routes'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);
+    console.error('API Error:', err.stack);
+
+    // Ensure CORS headers are present even on errors
+    const origin = req.headers.origin;
+    const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['*'];
+
+    if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin || '*');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+
     res.status(err.status || 500).json({
+        success: false,
         message: err.message || 'Internal Server Error',
-        error: process.env.NODE_ENV === 'development' ? err : {}
+        error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong on the server',
+        tip: process.env.DB_HOST === 'localhost' ? 'Database host is set to localhost. Ensure your Vercel environment variables are configured correctly.' : undefined
     });
 });
 
@@ -337,12 +349,17 @@ const PORT = process.env.PORT || 3000;
 // Start server
 const startServer = async () => {
     try {
+        console.log(`📡 Attempting to connect to database at ${process.env.DB_HOST}:${process.env.DB_PORT}...`);
+
         // Test database connection
         await sequelize.authenticate();
         console.log('✅ Database connection established successfully.');
 
         // Sync database (set to false in production)
-        if (process.env.NODE_ENV !== 'production') {
+        const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+
+        if (!isProduction) {
+            console.log('🔄 Running database synchronization (non-production mode)...');
             // Reverted alter: true due to "Too many keys" error in products table.
             // Using manual ALTER for specific changes instead.
             await sequelize.sync({ alter: false });
@@ -535,8 +552,6 @@ const startServer = async () => {
             await seedSystemSettings();
         }
 
-        // ... existing seed functions ...
-
         async function seedSystemSettings() {
             const { SystemSetting } = require('./models');
 
@@ -564,22 +579,26 @@ const startServer = async () => {
             console.log('✅ System settings seeded.');
         }
 
-        app.listen(PORT, () => {
-            console.log('╔══════════════════════════════════════════════════════════╗');
-            console.log('║          User Login API - Server Started                ║');
-            console.log('╚══════════════════════════════════════════════════════════╝');
-            console.log(`🚀 Server running on port: ${PORT}`);
-            console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-            console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
-            console.log('══════════════════════════════════════════════════════════');
-        });
+        if (process.env.VERCEL !== '1') {
+            app.listen(PORT, () => {
+                console.log('╔══════════════════════════════════════════════════════════╗');
+                console.log('║          User Login API - Server Started                ║');
+                console.log('╚══════════════════════════════════════════════════════════╝');
+                console.log(`🚀 Server running on port: ${PORT}`);
+                console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+                console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
+                console.log('══════════════════════════════════════════════════════════');
+            });
+        }
     } catch (error) {
         console.error('❌ Unable to start server:', error);
-        process.exit(1);
+        if (process.env.VERCEL !== '1') {
+            process.exit(1);
+        }
     }
 };
 
+// Start initialization
 startServer();
 
 module.exports = app;
-
