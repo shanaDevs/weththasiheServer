@@ -319,10 +319,6 @@ module.exports = (sequelize) => {
             { fields: ['sku'], unique: true },
             { fields: ['barcode'] },
             { fields: ['category_id'] },
-            { fields: ['status'] },
-            { fields: ['is_active'] },
-            { fields: ['stock_quantity'] },
-            { fields: ['manufacturer'] },
             { fields: ['generic_name'] }
         ]
     });

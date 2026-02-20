@@ -112,7 +112,9 @@ const initDb = async () => {
         const isProduction = process.env.NODE_ENV === 'production';
 
         console.log('🔄 Synchronizing database models...');
-        await sequelize.sync({ alter: !isProduction }); // 'alter' in dev, standard sync in prod
+        // Disabled alter: true because the products table is at MySQL's 64-index limit.
+        // Standard sync() will still create missing tables.
+        await sequelize.sync({ alter: false });
         console.log('✅ Database synchronized successfully.');
 
         // Seeders

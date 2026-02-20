@@ -81,14 +81,14 @@ Category.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
 Product.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
 Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
 
-Product.belongsTo(Tax, { foreignKey: 'taxId', as: 'tax' });
-Tax.hasMany(Product, { foreignKey: 'taxId', as: 'products' });
+Product.belongsTo(Tax, { foreignKey: 'taxId', as: 'tax', constraints: false });
+Tax.hasMany(Product, { foreignKey: 'taxId', as: 'products', constraints: false });
 
 Product.hasMany(ProductBulkPrice, { foreignKey: 'productId', as: 'bulkPrices' });
 ProductBulkPrice.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 
-Product.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
-Product.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
+Product.belongsTo(User, { foreignKey: 'createdBy', as: 'creator', constraints: false });
+Product.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater', constraints: false });
 
 // ----- Agency -----
 // Note: No FK constraint on agency_id — products table is at MySQL's 64-key limit.
@@ -100,8 +100,8 @@ Agency.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 Agency.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
 
 // ----- Brand -----
-Brand.hasMany(Product, { foreignKey: 'brandId', as: 'products' });
-Product.belongsTo(Brand, { foreignKey: 'brandId', as: 'brandEntity' });
+Brand.hasMany(Product, { foreignKey: 'brandId', as: 'products', constraints: false });
+Product.belongsTo(Brand, { foreignKey: 'brandId', as: 'brandEntity', constraints: false });
 
 Brand.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 Brand.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
