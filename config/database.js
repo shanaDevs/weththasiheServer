@@ -26,7 +26,10 @@ const sequelize = process.env.DATABASE_URL
             dialectOptions: {
                 ssl: process.env.DB_SSL === 'true' ? {
                     rejectUnauthorized: false
-                } : false
+                } : false,
+                // Helpful for serverless environments to avoid handshake timeouts
+                connectTimeout: 60000,
+                keepAlive: true
             },
             pool: {
                 max: 5,
