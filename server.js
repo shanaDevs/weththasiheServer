@@ -2,53 +2,37 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const swaggerUi = require('swagger-ui-express');
-const swaggerJsdoc = require('swagger-jsdoc');
 require('dotenv').config();
 
 const { sequelize } = require('./config/database');
-const { seedDefaultRoles } = require('./seeders/defaultRoles');
-const { seedDefaultSuperAdmin } = require('./seeders/defaultUser');
 
 const app = express();
 
-// Set trust proxy before other middleware - important for Vercel
+// Set trust proxy before other middleware - critical for Vercel
 app.set('trust proxy', 1);
 
 // CORS Configuration
 const corsOptions = {
     origin: (origin, callback) => {
         const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['*'];
-
-        // If origin is null (like mobile apps/curl), or process.env.CORS_ORIGIN is '*', allow it
+        // On Vercel, origin might be missing for some internal calls, but browser calls always have it
         if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            console.error(`CORS Error: Origin ${origin} is not allowed by CORS_ORIGIN setting: ${process.env.CORS_ORIGIN}`);
-            callback(null, true); // Fallback to allowing in case of config issues during debugging
+            // Log CORS issues for debugging
+            console.warn(`CORS Warning: Origin ${origin} not in allowed list: ${allowedOrigins}`);
+            callback(null, true); // Fallback to allow during connection fixes
         }
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'X-Requested-With',
-        'Accept',
-        'Origin',
-        'X-Api-Version',
-        'Cache-Control',
-        'Pragma',
-        'Expires'
-    ],
-    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Api-Version'],
     credentials: true,
-    maxAge: 86400 // 24 hours
+    maxAge: 86400
 };
 
-// Apply CORS early
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-// Set Referrer-Policy to address the user's error message
 app.use((req, res, next) => {
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     next();
@@ -58,150 +42,99 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Welcome Route
+// Root route - handy check to see if API is alive
 app.get('/', (req, res) => {
     res.json({
-        message: 'Medipharm API is running',
-        version: '2.0.0',
-        environment: process.env.NODE_ENV || 'development'
+        name: 'Medipharm API',
+        environment: process.env.NODE_ENV || 'development',
+        db_configured: !!process.env.DB_HOST,
+        timestamp: new Date().toISOString()
     });
 });
 
-// Swagger configuration
+// Swagger Setup - CDN Method (Vercel-Safe)
 let swaggerSpec;
 try {
-    let rawSpec;
-    try {
-        rawSpec = require('./swagger-output.json');
-        console.log('✅ Loaded auto-generated Swagger documentation.');
-    } catch (e) {
-        console.log('ℹ️ No swagger-output.json found, using swagger-jsdoc.');
-    }
-
-    if (rawSpec) {
-        swaggerSpec = rawSpec;
-    } else {
-        const swaggerOptions = {
-            definition: {
-                openapi: '3.0.0',
-                info: {
-                    title: 'E-Commerce Medicine API',
-                    version: '2.0.0',
-                    description: 'Medipharm B2B RESTful API',
-                },
-                servers: [
-                    { url: '/api', description: 'API Server' }
-                ],
-            },
-            apis: ['./routes/**/*.js', './server.js'],
-        };
-        swaggerSpec = swaggerJsdoc(swaggerOptions);
-    }
-} catch (error) {
-    console.error('❌ Failed to initialize Swagger spec:', error.message);
-    swaggerSpec = { openapi: '3.0.0', info: { title: 'Error', version: '1.0.0' }, paths: {} };
+    swaggerSpec = require('./swagger-output.json');
+} catch (e) {
+    console.error('❌ Swagger spec missing. Run npm run swagger.');
+    swaggerSpec = { openapi: '3.0.0', info: { title: 'Missing API Docs', version: '1.0.0' }, paths: {} };
 }
 
-// Swagger Documentation - Manual serving to avoid index.html/static asset issues on Vercel
-const swaggerStyles = `
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-    .swagger-ui { background-color: #0f172a; color: #e2e8f0; font-family: 'Outfit', sans-serif; }
-    .swagger-ui .info { padding: 40px; background: rgba(30, 41, 59, 0.7); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.1); }
-    .swagger-ui .topbar { display: none; }
-`;
+const CSS_URL = "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css";
+const JS_BUNDLE = "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.js";
+const JS_PRESET = "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.js";
 
-const swaggerOptions = {
-    customCss: swaggerStyles,
-    customSiteTitle: 'Medipharm API Docs',
-    swaggerOptions: {
-        persistAuthorization: true,
-    }
-};
-
+// Serve Swagger with CDN links to avoid local asset fetching 500s/rewrites
 app.use('/api-docs', swaggerUi.serve);
 app.get('/api-docs', (req, res) => {
-    res.send(swaggerUi.generateHTML(swaggerSpec, swaggerOptions));
+    res.send(swaggerUi.generateHTML(swaggerSpec, {
+        customCss: `
+            .swagger-ui { background-color: #0f172a; color: #e2e8f0; }
+            .swagger-ui .topbar { display: none; }
+        `,
+        customCssUrl: CSS_URL,
+        customJs: [JS_BUNDLE, JS_PRESET],
+        customSiteTitle: 'Medipharm API Documentation'
+    }));
 });
 
 // API Routes
 app.use('/api', require('./routes'));
 
-// Error handling middleware
+// Global Error Handler
 app.use((err, req, res, next) => {
-    console.error('API Error:', err.stack);
+    console.error('SERVER ERROR:', err.stack);
 
-    // Ensure CORS headers are present even on errors
+    // Ensure CORS headers on error responses
     const origin = req.headers.origin;
     if (origin) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
 
-    const statusCode = err.status || 500;
-    res.status(statusCode).json({
+    res.status(err.status || 500).json({
         success: false,
         message: err.message || 'Internal Server Error',
-        error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong on the server',
         diagnostics: {
+            host: process.env.DB_HOST,
             path: req.path,
-            method: req.method,
-            db_host: process.env.DB_HOST === 'localhost' ? 'localhost (Warning: Check Vercel Env Vars)' : 'configured'
+            error: process.env.NODE_ENV === 'development' ? err.message : undefined
         }
     });
 });
 
-// 404 handler
+// 404 Handler
 app.use((req, res) => {
-    res.status(404).json({ success: false, message: 'Route not found' });
+    res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
 });
 
 const PORT = process.env.PORT || 3000;
 
-// Start server
-const startServer = async () => {
+// Async Database Init (don't block the main thread for Vercel)
+const initDb = async () => {
     try {
-        console.log(`📡 Initialization: Checking database at ${process.env.DB_HOST}...`);
-
-        // Sync database (only in non-production)
         const isVercel = process.env.VERCEL === '1';
-        const isProduction = process.env.NODE_ENV === 'production' || isVercel;
-
-        if (!isProduction) {
-            await sequelize.authenticate();
-            console.log('✅ Local Database connected.');
-
-            console.log('🔄 Running database synchronization...');
-            await sequelize.sync({ alter: false });
-
-            // Re-importing seeders to ensure they are available
-            const { seedDefaultRoles } = require('./seeders/defaultRoles');
-            const { seedDefaultSuperAdmin } = require('./seeders/defaultUser');
-
-            await seedDefaultRoles();
-            await seedDefaultSuperAdmin();
-            console.log('✅ Seeders completed.');
-        } else {
-            // On Vercel, we just check connection and move on
-            sequelize.authenticate()
-                .then(() => console.log('✅ Cloud Database connected.'))
-                .catch(err => console.error('⚠️ Cloud Database connection failed during startup. Requests requiring database will fail.', err.message));
-        }
-
         if (!isVercel) {
-            app.listen(PORT, () => {
-                console.log(`🚀 Server running on port: ${PORT}`);
-                console.log(`📚 Documentation: http://localhost:${PORT}/api-docs`);
-            });
+            await sequelize.authenticate();
+            console.log('✅ Local Database Connected.');
+        } else {
+            // Lazy check
+            sequelize.authenticate()
+                .then(() => console.log('✅ Vercel Database Connected.'))
+                .catch(err => console.error('⚠️ Vercel Database Connection Failed:', err.message));
         }
-    } catch (error) {
-        console.error('❌ Startup Error:', error);
-        if (process.env.VERCEL !== '1') {
-            process.exit(1);
-        }
+    } catch (err) {
+        console.error('❌ Database Initialization Error:', err.message);
     }
 };
 
-// Start initialization
-startServer();
+initDb();
+
+if (process.env.VERCEL !== '1') {
+    app.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+    });
+}
 
 module.exports = app;

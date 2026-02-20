@@ -35,12 +35,12 @@ const settings = [
     { key: 'sms_sender_id', value: '', label: 'SMS Sender ID', category: 'sms', type: 'string', sortOrder: 4 },
 
     // Order Settings
-    { key: 'min_order_value', value: '500', label: 'Minimum Order Value', category: 'orders', type: 'number', sortOrder: 1 },
-    { key: 'free_shipping_threshold', value: '5000', label: 'Free Shipping Threshold', category: 'orders', type: 'number', sortOrder: 2 },
-    { key: 'default_shipping_charge', value: '100', label: 'Default Shipping Charge', category: 'orders', type: 'number', sortOrder: 3 },
+    { key: 'min_order_value', value: '500', label: 'Minimum Order Value', category: 'orders', type: 'number', sortOrder: 1, isPublic: true },
+    { key: 'free_shipping_threshold', value: '5000', label: 'Free Shipping Threshold', category: 'orders', type: 'number', sortOrder: 2, isPublic: true },
+    { key: 'default_shipping_charge', value: '100', label: 'Default Shipping Charge', category: 'orders', type: 'number', sortOrder: 3, isPublic: true },
     { key: 'order_cancellation_hours', value: '24', label: 'Order Cancellation Window (hours)', category: 'orders', type: 'number', sortOrder: 4 },
     { key: 'require_doctor_verification', value: 'true', label: 'Require Doctor Verification for Orders', category: 'orders', type: 'boolean', sortOrder: 5 },
-    { key: 'delivery_ranges', value: '[]', label: 'Delivery Charge Ranges', category: 'orders', type: 'json', sortOrder: 10 },
+    { key: 'delivery_ranges', value: '[]', label: 'Delivery Charge Ranges', category: 'orders', type: 'json', sortOrder: 10, isPublic: true },
 
 
     // Inventory Settings
@@ -56,9 +56,9 @@ const settings = [
     { key: 'enable_credit_orders', value: 'true', label: 'Enable Credit Orders', category: 'credit', type: 'boolean', sortOrder: 3 },
 
     // Tax Settings
-    { key: 'default_tax_enabled', value: 'true', label: 'Enable Tax by Default', category: 'tax', type: 'boolean', sortOrder: 1 },
-    { key: 'default_tax_percentage', value: '18', label: 'Default Tax Percentage', category: 'tax', type: 'number', sortOrder: 2, validationRules: JSON.stringify({ min: 0, max: 100 }) },
-    { key: 'tax_inclusive_pricing', value: 'false', label: 'Tax Inclusive Pricing', category: 'tax', type: 'boolean', sortOrder: 3 },
+    { key: 'default_tax_enabled', value: 'true', label: 'Enable Tax by Default', category: 'tax', type: 'boolean', sortOrder: 1, isPublic: true },
+    { key: 'default_tax_percentage', value: '18', label: 'Default Tax Percentage', category: 'tax', type: 'number', sortOrder: 2, validationRules: JSON.stringify({ min: 0, max: 100 }), isPublic: true },
+    { key: 'tax_inclusive_pricing', value: 'false', label: 'Tax Inclusive Pricing', category: 'tax', type: 'boolean', sortOrder: 3, isPublic: true },
 ];
 
 async function seedSettings() {
